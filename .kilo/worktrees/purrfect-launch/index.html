@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>OmniCore | Enterprise Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono&amp;family=Geist:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">tailwind.config = {darkMode: "class", theme: {extend: {colors: {"text-secondary": "#CBD5E1", "on-tertiary-fixed": "#301400", "surface-variant": "#273647", "border-subtle": "rgba(255,255,255,0.06)", "text-primary": "#F8FAFC", "on-primary-fixed": "#25005a", outline: "#958da1", "on-tertiary-container": "#ffdfcc", "surface-primary": "#111827", "tertiary-fixed-dim": "#ffb784", "on-surface": "#d4e4fa", "accent-primary": "#7C3AED", "surface-container": "#122131", "on-secondary-fixed-variant": "#2f2ebe", error: "#ffb4ab", "border-strong": "rgba(255,255,255,0.12)", "focus-ring": "rgba(124,58,237,0.45)", "outline-variant": "#4a4455", tertiary: "#ffb784", "inverse-on-surface": "#233143", "surface-container-lowest": "#010f1f", "border-default": "rgba(255,255,255,0.08)", "on-error-container": "#ffdad6", "surface-bright": "#2c3a4c", "on-primary-fixed-variant": "#5a00c6", "secondary-container": "#3131c0", secondary: "#c0c1ff", "surface-container-high": "#1c2b3c", "primary-fixed": "#eaddff", "on-tertiary": "#4f2500", "primary-fixed-dim": "#d2bbff", "surface-secondary": "#161B26", primary: "#d2bbff", "bg-secondary": "#111827", "inverse-surface": "#d4e4fa", "tertiary-container": "#91592e", background: "#051424", "surface-elevated": "#1B2433", "surface-tint": "#d2bbff", "on-tertiary-fixed-variant": "#6b3a12", "primary-container": "#7c3aed", "on-secondary-fixed": "#07006c", "on-secondary": "#1000a9", "surface-dim": "#051424", "secondary-fixed": "#e1e0ff", "secondary-fixed-dim": "#c0c1ff", "text-muted": "#94A3B8", "surface-container-low": "#0d1c2d", "on-error": "#690005", "on-primary-container": "#ede0ff", "tertiary-fixed": "#ffdcc5", "accent-secondary": "#6366F1", "on-background": "#d4e4fa", info: "#3B82F6", surface: "#051424", "on-secondary-container": "#b0b2ff", "bg-tertiary": "#161B26", "on-surface-variant": "#ccc3d8", "on-primary": "#3f008e", success: "#10B981", "error-container": "#93000a", "surface-container-highest": "#273647", warning: "#F59E0B", "bg-primary": "#0B1020", "inverse-primary": "#732ee4"}, borderRadius: {DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem"}, spacing: {"workspace-padding": "24px", xxl: "32px", "card-padding": "20px", lg: "16px", xs: "4px", "content-max-width": "1600px", "topbar-height": "64px", sm: "8px", xxxl: "48px", xl: "24px", "sidebar-width": "240px", "base-unit": "8px", md: "12px", base: "8px"}, fontFamily: {"display-lg": ["Geist"], "title-lg": ["Geist"], "label-md": ["Inter"], "body-sm": ["Inter"], "title-sm": ["Inter"], "body-md": ["Inter"], "label-sm": ["Inter"], "headline-lg": ["Geist"], "body-lg": ["Inter"], "headline-md": ["Geist"], "mono-code": ["JetBrains Mono"], "title-md": ["Geist"]}, fontSize: {"display-lg": ["36px", {lineHeight: "44px", letterSpacing: "-0.02em", fontWeight: "600"}], "title-lg": ["20px", {lineHeight: "28px", fontWeight: "600"}], "label-md": ["12px", {lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "500"}], "body-sm": ["13px", {lineHeight: "18px", fontWeight: "400"}], "title-sm": ["16px", {lineHeight: "24px", fontWeight: "500"}], "body-md": ["14px", {lineHeight: "20px", fontWeight: "400"}], "label-sm": ["11px", {lineHeight: "14px", letterSpacing: "0.05em", fontWeight: "600"}], "headline-lg": ["28px", {lineHeight: "36px", letterSpacing: "-0.02em", fontWeight: "600"}], "body-lg": ["15px", {lineHeight: "22px", fontWeight: "400"}], "headline-md": ["24px", {lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600"}], "mono-code": ["13px", {lineHeight: "18px", fontWeight: "400"}], "title-md": ["18px", {lineHeight: "26px", fontWeight: "600"}]}}}};</script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0B1020;
+            color: #F8FAFC;
+        }
+    </style>
+</head>
+<body class="antialiased">
+<!-- Login Shell Suppression: No Sidebar or TopNav for Transactional Screen -->
+<main class="min-h-screen flex items-center justify-center p-workspace-padding relative overflow-hidden">
+<!-- Background Architectural Elements -->
+<div class="absolute inset-0 z-0">
+<div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-accent-primary/5 blur-[120px]"></div>
+<div class="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] rounded-full bg-accent-secondary/5 blur-[100px]"></div>
+<div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(#1e293b 1px, transparent 1px); background-size: 40px 40px;"></div>
+</div>
+<!-- Login Container -->
+<div class="w-full max-w-[440px] z-10 flex flex-col gap-xxl">
+<!-- Brand Header -->
+<div class="flex flex-col items-center text-center gap-sm">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 bg-primary-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">terminal</span>
+</div>
+<span class="font-display-lg text-display-lg font-bold text-accent-primary">OmniCore</span>
+</div>
+<div class="mt-md">
+<h1 class="font-headline-md text-headline-md text-text-primary">Operational Portal</h1>
+<p class="font-body-md text-body-md text-text-muted mt-xs">Secure enterprise environment</p>
+</div>
+</div>
+<!-- Validation Error State (Top Toast) -->
+<div class="bg-error-container/20 border border-error/30 p-md rounded flex items-start gap-md">
+<span class="material-symbols-outlined text-error text-[20px]">error</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-text-primary">Authentication Failed</span>
+<span class="font-body-sm text-body-sm text-text-secondary">Invalid credentials. Please verify your identity and try again.</span>
+</div>
+</div>
+<!-- Login Form Card -->
+<div class="bg-surface-secondary border border-border-default rounded shadow-soft p-xxl">
+<form class="flex flex-col gap-xl">
+<!-- Email Field -->
+<div class="flex flex-col gap-sm">
+<label class="font-label-md text-label-md text-text-secondary" for="email">Enterprise Email</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-text-muted text-[18px] group-focus-within:text-accent-primary transition-colors">mail</span>
+<input class="w-full bg-surface-primary border border-border-strong rounded py-md pl-[44px] pr-md font-body-md text-body-md text-text-primary focus:ring-2 focus:ring-focus-ring focus:border-accent-primary outline-none transition-all placeholder:text-text-muted/50" id="email" placeholder="agent@omnicore.io" type="email"/>
+</div>
+</div>
+<!-- Password Field (Error State Highlight) -->
+<div class="flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-text-secondary" for="password">Credential Key</label>
+<a class="font-label-md text-label-md text-accent-primary hover:underline" href="#">Forgot?</a>
+</div>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-text-muted text-[18px] group-focus-within:text-accent-primary transition-colors">lock</span>
+<input class="w-full bg-surface-primary border border-error/50 rounded py-md pl-[44px] pr-md font-body-md text-body-md text-text-primary focus:ring-2 focus:ring-error/20 focus:border-error outline-none transition-all" id="password" type="password" value="********"/>
+</div>
+<span class="font-label-sm text-label-sm text-error">Access key does not match organizational records.</span>
+</div>
+<!-- Checkbox -->
+<div class="flex items-center gap-md">
+<input class="w-4 h-4 rounded border-border-strong bg-surface-primary text-accent-primary focus:ring-focus-ring focus:ring-offset-0" id="remember" type="checkbox"/>
+<label class="font-body-sm text-body-sm text-text-muted" for="remember">Maintain session for 12 hours</label>
+</div>
+<!-- Submit Button (Loading State) -->
+<button class="w-full bg-accent-primary/50 text-white font-title-sm text-title-sm py-md rounded flex items-center justify-center gap-md opacity-80 cursor-not-allowed" disabled="" type="submit">
+<svg class="animate-spin h-5 w-5 text-white" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+<path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" fill="currentColor"></path>
+</svg>
+<span>Verifying...</span>
+</button>
+</form>
+<!-- Divider -->
+<div class="flex items-center gap-md my-xl">
+<div class="flex-1 h-[1px] bg-border-strong"></div>
+<span class="font-label-sm text-label-sm text-text-muted uppercase tracking-widest">or continue with</span>
+<div class="flex-1 h-[1px] bg-border-strong"></div>
+</div>
+<!-- OAuth Buttons -->
+<div class="grid grid-cols-2 gap-md">
+<button class="flex items-center justify-center gap-sm bg-surface-primary border border-border-strong rounded py-md font-label-md text-label-md text-text-primary hover:bg-surface-variant transition-all hover:scale-[1.02] active:scale-[0.98]">
+<img alt="Google Logo" class="w-4 h-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAKuVB_PqKJXXTx2lgicdLzrs-T67Ya2jur2tE7VeGd93vC8sBvr8BsNtTVkEL8HqEwuSvpShuzFwFbcgj8KSlrQ_LyfdXyowhx6pLfMIMd4zU0Z5QwmHq_H0L1BbGoNiR1_0Dd-_X8NN9HVeQnaxP1e8Ndquf58V9n3CC13Zdt5dYE5v47fb7zalIubLBWuLhp4Pd0q45zS7XnODWIHxYrecdNSb1WyK7aCo9Pyx92zNH6fsy3BfQWu5ZxRD88XhGB2FPu8FzWDyAA"/>
+<span>Google</span>
+</button>
+<button class="flex items-center justify-center gap-sm bg-surface-primary border border-border-strong rounded py-md font-label-md text-label-md text-text-primary hover:bg-surface-variant transition-all hover:scale-[1.02] active:scale-[0.98]">
+<img alt="Microsoft Logo" class="w-4 h-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvN3gMqq-sX9ntiPp0dN8wC7GULf2E8TTTbF-I0kchBRZNND4GwijRyC8mTsjryV7TT26pzk5g3aXIiI7ykloUTD6bL6SpA87w9MMiskEsD880f_jd99dUiAuaeL9h4IpKzmiVhzsQ97NEkUSyCNfIVuj6767x0nAMfEhRuBDR9Zw6fyIinIrlpL72dDgA5IR2_e7EbJqaLHSc9PMqcdifLOt5vW4qa4C5tRnGPHcOUg7mgBVmM8adzZWlNR_yLHQAHV-bs-sdDS5G"/>
+<span>Microsoft</span>
+</button>
+</div>
+</div>
+<!-- Footer Meta -->
+<div class="flex flex-col items-center gap-sm">
+<div class="flex items-center gap-xl">
+<a class="font-label-sm text-label-sm text-text-muted hover:text-text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="font-label-sm text-label-sm text-text-muted hover:text-text-primary transition-colors" href="#">Terms of Service</a>
+<a class="font-label-sm text-label-sm text-text-muted hover:text-text-primary transition-colors" href="#">System Status</a>
+</div>
+<div class="flex items-center gap-xs mt-md">
+<span class="w-2 h-2 rounded-full bg-success"></span>
+<span class="font-label-sm text-label-sm text-text-muted">All primary systems operational</span>
+</div>
+</div>
+</div>
+<!-- Side Visual: Asymmetric High-End Pattern -->
+<div class="hidden lg:block fixed right-0 top-0 bottom-0 w-1/3 bg-surface-primary border-l border-border-strong overflow-hidden">
+<div class="absolute inset-0 opacity-20">
+<img class="w-full h-full object-cover grayscale" data-alt="A macro close-up of a high-tech circuit board with glowing violet and deep blue traces. The aesthetic is industrial and futuristic, focusing on precise electronic paths and microchips under cool, moody laboratory lighting. The composition is angled to create depth and a sense of complex architecture, embodying the concept of operational reliability and enterprise security." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2OPq0O1NGVlQHhLAxtT4Hn0_FyAzFWx77eTKBegm_AXXV_AHVoEV_hOTjyOcUYKfBu7iEZn1bw0QY9TD5JxtOJwsvD2VRDurVyqAIAApBtte2xFpWuW_CQBASZaeshE5mQJNjnOgk_mSxBCYOSerap1vJ1m4YRuUDx65L2qGVF5Fawkd3NHZPMm6g1EUs0RJwJrfxfC3zPZjwI2NHxflzMizmy-uE8H86IQH5xf2TByl0QW43tSGONy3fcDDR6Gstwt34T5spJxtM"/>
+</div>
+<div class="absolute inset-0 bg-gradient-to-l from-background via-background/80 to-transparent"></div>
+<div class="absolute bottom-xxxl left-xl right-xl">
+<div class="flex flex-col gap-md p-xl border-l-2 border-accent-primary bg-surface-elevated/40 backdrop-blur-sm">
+<span class="material-symbols-outlined text-accent-primary" style="font-variation-settings: 'FILL' 1;">security</span>
+<p class="font-title-md text-title-md text-text-primary">Encryption-First Architecture</p>
+<p class="font-body-md text-body-md text-text-secondary leading-relaxed">OmniCore uses Zero-Trust security protocols to ensure that every session, every transaction, and every data point is secured by enterprise-grade 256-bit AES encryption.</p>
+</div>
+</div>
+</div>
+</main>
+</body></html>

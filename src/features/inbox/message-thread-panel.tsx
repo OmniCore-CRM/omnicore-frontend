@@ -8,6 +8,7 @@ import {
   listMessages,
   sendMessage,
 } from "@/api/conversations";
+import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useConversationPresence } from "@/hooks/use-conversation-presence";
 import { useConversationRoom } from "@/hooks/use-conversation-room";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
 import type { Message } from "@/types/models";
 import { Check, CheckCheck, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export function MessageThreadPanel() {
   const token = useAuthStore((s) => s.accessToken);
@@ -75,7 +77,10 @@ export function MessageThreadPanel() {
       );
       return { prev };
     },
-    onError: (_err, _text, ctx) => {
+    onError: (err, _text, ctx) => {
+      toast.error(
+        getErrorMessage(err, "Message could not be sent"),
+      );
       if (!selectedId || !ctx?.prev) return;
       qc.setQueryData(queryKeys.messages(selectedId), ctx.prev);
     },

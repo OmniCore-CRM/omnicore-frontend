@@ -8,6 +8,7 @@ import {
   listMessages,
   sendMessage,
 } from "@/api/conversations";
+import { createTicketFromConversation } from "@/api/tickets";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useConversationPresence } from "@/hooks/use-conversation-presence";
@@ -192,6 +193,21 @@ export function MessageThreadPanel() {
     },
   });
 
+  const createTicketMut = useMutation({
+    mutationFn: (subject: string) =>
+      createTicketFromConversation(token!, selectedId!, {
+        subject,
+        priority: "MEDIUM",
+      }),
+    onSuccess: async (ticket) => {
+      toast.success(`Ticket created: ${ticket.subject}`);
+      await qc.invalidateQueries({ queryKey: ["tickets"] });
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not create ticket"));
+    },
+  });
+
   const [draft, setDraft] = useState("");
 
   const onDraftChange = (v: string) => {
@@ -233,6 +249,17 @@ export function MessageThreadPanel() {
     conversation?.customer?.email ||
     "Conversation";
 
+  const createTicket = () => {
+    if (!selectedId || createTicketMut.isPending) return;
+    const subject = window.prompt(
+      "Ticket subject",
+      customerName ? `Follow up with ${customerName}` : "Customer follow-up",
+    );
+
+    if (!subject?.trim()) return;
+    createTicketMut.mutate(subject.trim());
+  };
+
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-oc-bg/30">
       <header className="flex items-center justify-between gap-3 border-b border-oc-border px-4 py-3">
@@ -246,8 +273,14 @@ export function MessageThreadPanel() {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button variant="outline" size="sm" type="button" disabled>
-            Assign
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            disabled={createTicketMut.isPending}
+            onClick={createTicket}
+          >
+            Ticket
           </Button>
           <Button variant="secondary" size="sm" type="button" disabled>
             Resolve

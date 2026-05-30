@@ -147,18 +147,33 @@ export interface WidgetInstallation {
 }
 
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export type TicketStatus =
+  | "OPEN"
+  | "PENDING"
+  | "ESCALATED"
+  | "RESOLVED"
+  | "CLOSED";
 
-// Future ticketing module.
 export interface Ticket {
   id: string;
   companyId?: string;
 
   subject: string;
-  status: string;
+  description?: string | null;
+  status: TicketStatus;
   priority: TicketPriority;
 
+  assigneeId?: string | null;
   assignee?: AuthUser | null;
+  createdById?: string;
+  createdBy?: AuthUser | null;
+  customerId?: string | null;
+  customer?: Customer | null;
   conversationId?: string | null;
+  conversation?: Pick<
+    Conversation,
+    "id" | "customerId" | "channel" | "createdAt" | "updatedAt"
+  > | null;
 
   slaDueAt?: string | null;
 

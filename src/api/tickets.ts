@@ -1,7 +1,7 @@
 import { apiFetch } from "./client";
 import { normalizePaginated } from "./normalize";
 import type { Paginated } from "@/types/api";
-import type { Ticket } from "@/types/models";
+import type { Ticket, TicketPriority, TicketStatus } from "@/types/models";
 
 export interface TicketListParams {
   status?: string;
@@ -32,4 +32,56 @@ export async function listTickets(
 
 export async function getTicket(token: string, id: string): Promise<Ticket> {
   return apiFetch<Ticket>(`/tickets/${id}`, { token });
+}
+
+export interface CreateTicketInput {
+  subject: string;
+  description?: string;
+  priority?: TicketPriority;
+  status?: TicketStatus;
+  customerId?: string | null;
+  conversationId?: string | null;
+  assigneeId?: string | null;
+}
+
+export async function createTicket(
+  token: string,
+  body: CreateTicketInput,
+): Promise<Ticket> {
+  return apiFetch<Ticket>("/tickets", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function createTicketFromConversation(
+  token: string,
+  conversationId: string,
+  body: {
+    subject: string;
+    description?: string;
+    priority?: TicketPriority;
+    assigneeId?: string | null;
+  },
+): Promise<Ticket> {
+  return apiFetch<Ticket>(`/conversations/${conversationId}/tickets`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function updateTicket(
+  token: string,
+  id: string,
+  body: Partial<
+    Pick<Ticket, "subject" | "description" | "status" | "priority" | "assigneeId">
+  >,
+): Promise<Ticket> {
+  return apiFetch<Ticket>(`/tickets/${id}`, {
+    method: "PATCH",
+    token,
+    body,
+  });
 }

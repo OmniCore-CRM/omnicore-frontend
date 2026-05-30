@@ -1,17 +1,22 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  createTicketNote,
   createTicket,
   getTicket,
+  listTicketActivity,
+  listTicketNotes,
   listTickets,
   updateTicket,
 } from "@/api/tickets";
+import { listUsers } from "@/api/users";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
+import { useSocket } from "@/components/providers/socket-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { formatRelative } from "@/lib/format-time";
 import type {
+  AuthUser,
   Ticket,
   TicketPriority,
   TicketStatus,
@@ -54,7 +60,7 @@ function statusTone(s: Ticket["status"]) {
   return "neutral" as const;
 }
 
-const displayUser = (user: Ticket["assignee"]) =>
+const displayUser = (user?: AuthUser | null) =>
   user?.displayName ||
   [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
   user?.email ||
@@ -64,6 +70,7 @@ export default function TicketsPage() {
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
+  const socket = useSocket();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [priority, setPriority] = useState<TicketPriority | "">("");
@@ -75,6 +82,8 @@ export default function TicketsPage() {
     useState<TicketPriority>("MEDIUM");
   const [customerId, setCustomerId] = useState("");
   const [conversationId, setConversationId] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
+  const [noteDraft, setNoteDraft] = useState("");
   const canMutate = user?.role !== "VIEWER";
 
   const params = useMemo(
@@ -103,6 +112,51 @@ export default function TicketsPage() {
     enabled: !!token && !!selectedId,
   });
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const refreshTickets = () => {
+      void qc.invalidateQueries({ queryKey: ["tickets"] });
+      if (selectedId) {
+        void qc.invalidateQueries({ queryKey: queryKeys.ticket(selectedId) });
+        void qc.invalidateQueries({
+          queryKey: ["ticket-activity", selectedId],
+        });
+        void qc.invalidateQueries({
+          queryKey: ["ticket-notes", selectedId],
+        });
+      }
+    };
+
+    socket.on("ticket_created", refreshTickets);
+    socket.on("ticket_updated", refreshTickets);
+    socket.on("ticket_note_added", refreshTickets);
+
+    return () => {
+      socket.off("ticket_created", refreshTickets);
+      socket.off("ticket_updated", refreshTickets);
+      socket.off("ticket_note_added", refreshTickets);
+    };
+  }, [qc, selectedId, socket]);
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => listUsers(token!),
+    enabled: !!token,
+  });
+
+  const { data: notes = [] } = useQuery({
+    queryKey: ["ticket-notes", selectedId ?? "_"],
+    queryFn: () => listTicketNotes(token!, selectedId!),
+    enabled: !!token && !!selectedId,
+  });
+
+  const { data: activity = [] } = useQuery({
+    queryKey: ["ticket-activity", selectedId ?? "_"],
+    queryFn: () => listTicketActivity(token!, selectedId!),
+    enabled: !!token && !!selectedId,
+  });
+
   const createMut = useMutation({
     mutationFn: () =>
       createTicket(token!, {
@@ -111,6 +165,7 @@ export default function TicketsPage() {
         priority: createPriority,
         customerId: customerId || undefined,
         conversationId: conversationId || undefined,
+        assigneeId: assigneeId || undefined,
       }),
     onSuccess: async (created) => {
       toast.success("Ticket created");
@@ -120,6 +175,7 @@ export default function TicketsPage() {
       setDescription("");
       setCustomerId("");
       setConversationId("");
+      setAssigneeId("");
       setCreatePriority("MEDIUM");
       await qc.invalidateQueries({ queryKey: ["tickets"] });
     },
@@ -137,10 +193,30 @@ export default function TicketsPage() {
     onSuccess: async (updated) => {
       toast.success("Ticket updated");
       await qc.invalidateQueries({ queryKey: ["tickets"] });
+      await qc.invalidateQueries({ queryKey: ["ticket-activity", updated.id] });
       qc.setQueryData(queryKeys.ticket(updated.id), updated);
     },
     onError: (err) => {
       toast.error(getErrorMessage(err, "Could not update ticket"));
+    },
+  });
+
+  const noteMut = useMutation({
+    mutationFn: () =>
+      createTicketNote(token!, selectedId!, {
+        content: noteDraft,
+      }),
+    onSuccess: async () => {
+      toast.success("Internal note added");
+      setNoteDraft("");
+      await qc.invalidateQueries({ queryKey: ["ticket-notes", selectedId] });
+      await qc.invalidateQueries({ queryKey: ["ticket-activity", selectedId] });
+      if (selectedId) {
+        await qc.invalidateQueries({ queryKey: queryKeys.ticket(selectedId) });
+      }
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not add note"));
     },
   });
 
@@ -258,6 +334,22 @@ export default function TicketsPage() {
                   className="mt-1"
                   placeholder="Optional"
                 />
+              </div>
+              <div>
+                <label className="text-xs text-oc-faint">Assignee</label>
+                <select
+                  value={assigneeId}
+                  onChange={(e) => setAssigneeId(e.target.value)}
+                  className="mt-1 h-9 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text"
+                >
+                  <option value="">Unassigned</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {[u.firstName, u.lastName].filter(Boolean).join(" ") ||
+                        u.email}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-end gap-2">
                 <Button
@@ -427,6 +519,28 @@ export default function TicketsPage() {
                   ))}
                 </select>
               </label>
+
+              <label className="text-xs text-oc-faint">
+                Assignee
+                <select
+                  value={ticket.assigneeId ?? ""}
+                  disabled={!canMutate || updateMut.isPending}
+                  onChange={(e) =>
+                    updateMut.mutate({
+                      assigneeId: e.target.value || null,
+                    })
+                  }
+                  className="mt-1 h-9 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text"
+                >
+                  <option value="">Unassigned</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {[u.firstName, u.lastName].filter(Boolean).join(" ") ||
+                        u.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             <div className="space-y-2 text-xs text-oc-muted">
@@ -456,6 +570,76 @@ export default function TicketsPage() {
                 Updated:{" "}
                 {ticket.updatedAt ? formatRelative(ticket.updatedAt) : "—"}
               </p>
+            </div>
+
+            <div className="space-y-3 border-t border-oc-border pt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-oc-faint">
+                Internal notes
+              </h3>
+              {canMutate && (
+                <div className="space-y-2">
+                  <Textarea
+                    value={noteDraft}
+                    onChange={(e) => setNoteDraft(e.target.value)}
+                    placeholder="Add an internal note..."
+                    className="min-h-20"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={noteMut.isPending || !noteDraft.trim()}
+                    onClick={() => noteMut.mutate()}
+                  >
+                    {noteMut.isPending ? "Adding..." : "Add note"}
+                  </Button>
+                </div>
+              )}
+              <div className="space-y-2">
+                {notes.length === 0 ? (
+                  <p className="text-xs text-oc-muted">No internal notes.</p>
+                ) : (
+                  notes.map((note) => (
+                    <div
+                      key={note.id}
+                      className="rounded-lg border border-oc-border bg-oc-panel/60 p-3"
+                    >
+                      <p className="whitespace-pre-wrap text-sm text-oc-text">
+                        {note.content}
+                      </p>
+                      <p className="mt-2 text-[11px] text-oc-faint">
+                        {displayUser(note.author)} ·{" "}
+                        {formatRelative(note.createdAt)}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t border-oc-border pt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-oc-faint">
+                Activity
+              </h3>
+              {activity.length === 0 ? (
+                <p className="text-xs text-oc-muted">No activity yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {activity.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-lg bg-oc-bg/70 px-3 py-2 text-xs text-oc-muted"
+                    >
+                      <p className="font-medium text-oc-text">
+                        {item.action.replaceAll("_", " ").toLowerCase()}
+                      </p>
+                      <p className="mt-1 text-oc-faint">
+                        {displayUser(item.actor)} ·{" "}
+                        {formatRelative(item.createdAt)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         )}

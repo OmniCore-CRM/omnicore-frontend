@@ -1,7 +1,13 @@
 import { apiFetch } from "./client";
 import { normalizePaginated } from "./normalize";
 import type { Paginated } from "@/types/api";
-import type { Ticket, TicketPriority, TicketStatus } from "@/types/models";
+import type {
+  Ticket,
+  TicketActivity,
+  TicketNote,
+  TicketPriority,
+  TicketStatus,
+} from "@/types/models";
 
 export interface TicketListParams {
   status?: string;
@@ -83,5 +89,37 @@ export async function updateTicket(
     method: "PATCH",
     token,
     body,
+  });
+}
+
+export async function listTicketNotes(
+  token: string,
+  ticketId: string,
+): Promise<TicketNote[]> {
+  return apiFetch<TicketNote[]>(`/tickets/${ticketId}/notes`, {
+    token,
+  });
+}
+
+export async function createTicketNote(
+  token: string,
+  ticketId: string,
+  body: {
+    content: string;
+  },
+): Promise<TicketNote> {
+  return apiFetch<TicketNote>(`/tickets/${ticketId}/notes`, {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export async function listTicketActivity(
+  token: string,
+  ticketId: string,
+): Promise<TicketActivity[]> {
+  return apiFetch<TicketActivity[]>(`/tickets/${ticketId}/activity`, {
+    token,
   });
 }

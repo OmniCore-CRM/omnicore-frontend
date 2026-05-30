@@ -174,11 +174,41 @@ export interface Ticket {
     Conversation,
     "id" | "customerId" | "channel" | "createdAt" | "updatedAt"
   > | null;
+  notes?: TicketNote[];
+  activities?: TicketActivity[];
 
   slaDueAt?: string | null;
 
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type TicketActivityAction =
+  | "TICKET_CREATED"
+  | "TICKET_UPDATED"
+  | "STATUS_CHANGED"
+  | "PRIORITY_CHANGED"
+  | "ASSIGNED"
+  | "UNASSIGNED"
+  | "NOTE_ADDED";
+
+export interface TicketNote {
+  id: string;
+  ticketId: string;
+  authorId: string;
+  author?: AuthUser | null;
+  content: string;
+  createdAt: string;
+}
+
+export interface TicketActivity {
+  id: string;
+  ticketId: string;
+  actorId: string;
+  actor?: AuthUser | null;
+  action: TicketActivityAction;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 // Notification center item.

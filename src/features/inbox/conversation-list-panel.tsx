@@ -27,7 +27,6 @@ function channelTone(ch?: ConversationChannel) {
 
 export function ConversationListPanel() {
   const token = useAuthStore((s) => s.accessToken);
-  const user = useAuthStore((s) => s.user);
   const inboxSearch = useInboxStore((s) => s.inboxSearch);
   const setInboxSearch = useInboxStore((s) => s.setInboxSearch);
   const inboxFilter = useInboxStore((s) => s.inboxFilter);

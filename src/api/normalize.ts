@@ -41,7 +41,9 @@ export function normalizePaginated<T>(raw: unknown): Paginated<T> {
     ) as T[];
 
     const nextCursor =
-      (typeof payload.nextCursor === "string" && payload.nextCursor) ||
+      payload.nextCursor === null
+        ? null
+        : (typeof payload.nextCursor === "string" && payload.nextCursor) ||
       (typeof payload.cursor === "string" && payload.cursor) ||
       undefined;
 

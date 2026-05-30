@@ -5,8 +5,6 @@ import { Card } from "@/components/ui/card";
 
 export default function TeamsPage() {
   const company = useAuthStore((s) => s.company);
-  const data = null;
-  const isLoading = false;
   const error = null;
 
   return (

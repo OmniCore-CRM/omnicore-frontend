@@ -37,8 +37,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!token) {
-      setStatus("disconnected");
       startTransition(() => {
+        setStatus("disconnected");
         setSocket((prev) => {
           prev?.removeAllListeners();
           prev?.disconnect();
@@ -56,7 +56,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       reconnectionDelayMax: 8000,
     });
 
-    setStatus("connecting");
+    startTransition(() => {
+      setStatus("connecting");
+    });
 
     s.on("connect", () => {
       setStatus("connected");

@@ -5,6 +5,7 @@ import type { Conversation, Message } from "@/types/models";
 
 export interface ConversationListParams {
   search?: string;
+  channel?: string;
   status?: string;
   assigneeId?: string;
   cursor?: string;
@@ -17,6 +18,7 @@ export async function listConversations(
 ): Promise<Paginated<Conversation>> {
   const q = new URLSearchParams();
   if (params.search) q.set("search", params.search);
+  if (params.channel) q.set("channel", params.channel);
   if (params.status) q.set("status", params.status);
   if (params.assigneeId) q.set("assigneeId", params.assigneeId);
   if (params.cursor) q.set("cursor", params.cursor);

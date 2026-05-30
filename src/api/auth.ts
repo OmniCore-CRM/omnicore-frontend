@@ -2,7 +2,6 @@ import { apiFetch } from "./client";
 import { normalizeAuthResponse, normalizeMeResponse } from "./normalize";
 
 import type {
-  AuthMeResponse,
   LoginRequest,
   RegisterRequest,
 } from "@/types/api";

@@ -29,6 +29,13 @@ const socketEvents = {
   statusUpdated: "message_status_updated",
 };
 
+const messageShortcuts = [
+  "I need help",
+  "I want to make a complaint",
+  "I have a billing issue",
+  "I want to speak to support",
+];
+
 function storageKey(publicKey: string) {
   return `omnicore-widget:${publicKey}`;
 }
@@ -189,6 +196,8 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
     [messages],
   );
 
+  const showComposerShortcuts = sortedMessages.length <= 1;
+
   async function startChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -347,6 +356,23 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
               placeholder="Email (optional)"
               className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10"
             />
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-slate-500">
+                Common requests
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {messageShortcuts.map((shortcut) => (
+                  <button
+                    key={shortcut}
+                    type="button"
+                    onClick={() => setInitialMessage(shortcut)}
+                    className="min-h-9 rounded-full border border-slate-300 bg-slate-50 px-3 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
+                  >
+                    {shortcut}
+                  </button>
+                ))}
+              </div>
+            </div>
             <textarea
               value={initialMessage}
               onChange={(event) => setInitialMessage(event.target.value)}
@@ -405,6 +431,23 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
               })}
               <div ref={bottomRef} />
             </div>
+
+            {showComposerShortcuts && (
+              <div className="shrink-0 border-t border-slate-200 bg-white px-4 pt-3">
+                <div className="flex flex-wrap gap-2">
+                  {messageShortcuts.map((shortcut) => (
+                    <button
+                      key={shortcut}
+                      type="button"
+                      onClick={() => setComposer(shortcut)}
+                      className="min-h-9 rounded-full border border-slate-300 bg-slate-50 px-3 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-slate-400 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
+                    >
+                      {shortcut}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <form
               onSubmit={sendMessage}

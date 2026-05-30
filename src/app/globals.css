@@ -38,7 +38,10 @@ body {
   background: var(--color-oc-bg);
   color: var(--color-oc-text);
   font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -50,6 +53,19 @@ button,
 input,
 textarea {
   font: inherit;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  outline-color: var(--color-oc-accent);
+}
+
+::selection {
+  background: rgba(124, 58, 237, 0.35);
+  color: var(--color-oc-text);
 }
 
 /* Scrollbars — subtle enterprise */

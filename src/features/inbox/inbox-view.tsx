@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { markConversationRead } from "@/api/conversations";
 import { useInboxRealtime } from "@/hooks/use-inbox-realtime";
@@ -16,6 +16,7 @@ export function InboxView() {
   const company = useAuthStore((s) => s.company);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
   const setSelectedId = useInboxStore((s) => s.setSelectedConversationId);
+  const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
 
   // Initialize company-scoped realtime inbox events.
   useInboxRealtime(company?.id ?? null);
@@ -36,10 +37,16 @@ export function InboxView() {
   }, [token, selectedId]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col md:flex-row">
-      <ConversationListPanel />
-      <MessageThreadPanel />
-      <CustomerInspectorPanel />
+    <div className="flex h-full min-h-0 overflow-hidden bg-oc-bg">
+      <ConversationListPanel selected={Boolean(selectedId)} />
+      <MessageThreadPanel
+        onBack={() => setSelectedId(null)}
+        onOpenCustomer={() => setCustomerPanelOpen(true)}
+      />
+      <CustomerInspectorPanel
+        mobileOpen={customerPanelOpen}
+        onCloseMobile={() => setCustomerPanelOpen(false)}
+      />
     </div>
   );
 }

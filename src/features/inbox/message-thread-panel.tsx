@@ -13,15 +13,17 @@ import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useConversationPresence } from "@/hooks/use-conversation-presence";
 import { useConversationRoom } from "@/hooks/use-conversation-room";
+import { useSocketConnection } from "@/hooks/use-socket-connection";
 import { useAuthStore } from "@/stores/auth-store";
 import { useInboxStore } from "@/stores/inbox-store";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
 import type { Message } from "@/types/models";
-import { Check, CheckCheck, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, Info, Loader2, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 
 function isOptimisticMatch(candidate: Message, incoming: Message) {
@@ -74,10 +76,17 @@ function reconcileMessage(
   };
 }
 
-export function MessageThreadPanel() {
+export function MessageThreadPanel({
+  onBack,
+  onOpenCustomer,
+}: {
+  onBack: () => void;
+  onOpenCustomer: () => void;
+}) {
   const token = useAuthStore((s) => s.accessToken);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const socketState = useSocketConnection();
 
   const { data: conversation, isLoading: convLoading } = useQuery({
     queryKey: queryKeys.conversation(selectedId ?? "_"),
@@ -228,11 +237,16 @@ export function MessageThreadPanel() {
 
   if (!selectedId) {
     return (
-      <section className="flex min-h-[320px] flex-1 flex-col items-center justify-center bg-oc-bg/40 p-8 text-center md:min-h-0">
-        <p className="max-w-sm text-sm text-oc-muted">
-          Select a conversation to view messages, delivery states, and realtime
-          updates.
-        </p>
+      <section className="hidden min-h-0 flex-1 flex-col items-center justify-center bg-oc-bg/40 p-8 text-center md:flex">
+        <div className="max-w-sm rounded-xl border border-dashed border-oc-border bg-oc-panel/30 p-8">
+          <p className="text-base font-semibold text-oc-text">
+            Select a conversation
+          </p>
+          <p className="mt-2 text-sm leading-6 text-oc-muted">
+            Open a thread to view messages, delivery states, customer context,
+            and realtime updates.
+          </p>
+        </div>
       </section>
     );
   }
@@ -262,17 +276,53 @@ export function MessageThreadPanel() {
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-oc-bg/30">
-      <header className="flex items-center justify-between gap-3 border-b border-oc-border px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-oc-text">{title}</p>
-          <p className="truncate text-[11px] text-oc-faint">
-            {conversation?.channel
-              ? `${conversation.channel} · `
-              : ""}
-            Active conversation
+      <header className="flex min-h-16 items-center justify-between gap-3 border-b border-oc-border bg-oc-bg-mid/80 px-3 py-3 sm:px-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          type="button"
+          className="h-10 w-10 shrink-0 px-0 md:hidden"
+          onClick={onBack}
+          aria-label="Back to conversations"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold text-oc-text">
+            {title}
           </p>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+            {conversation?.channel && (
+              <Badge tone={conversation.channel === "WHATSAPP" ? "success" : "neutral"} className="normal-case">
+                {conversation.channel}
+              </Badge>
+            )}
+            <span className="inline-flex items-center gap-1 text-xs text-oc-faint">
+              {socketState === "live" ? (
+                <Wifi className="h-3.5 w-3.5 text-oc-success" />
+              ) : (
+                <WifiOff className="h-3.5 w-3.5 text-oc-warning" />
+              )}
+              {socketState === "live"
+                ? "Live"
+                : socketState === "offline"
+                  ? "Offline"
+                  : "Reconnecting"}
+            </span>
+          </div>
         </div>
         <div className="flex shrink-0 gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            className="h-10 w-10 px-0 xl:hidden"
+            onClick={onOpenCustomer}
+            aria-label="Open customer details"
+          >
+            <Info className="h-4 w-4" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -280,19 +330,26 @@ export function MessageThreadPanel() {
             disabled={createTicketMut.isPending}
             onClick={createTicket}
           >
-            Ticket
+            <span className="hidden sm:inline">Ticket</span>
+            <span className="sm:hidden">Tkt</span>
           </Button>
-          <Button variant="secondary" size="sm" type="button" disabled>
+          <Button variant="secondary" size="sm" type="button" disabled className="hidden sm:inline-flex">
             Resolve
           </Button>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-5 lg:px-6">
         {convLoading || messagesQuery.isLoading ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-[80%] rounded-xl" />
+              <Skeleton
+                key={i}
+                className={cn(
+                  "h-16 rounded-xl",
+                  i % 2 ? "ml-auto w-[68%]" : "w-[76%]",
+                )}
+              />
             ))}
           </div>
         ) : messagesQuery.data?.items.length ? (
@@ -325,8 +382,8 @@ export function MessageThreadPanel() {
         <div ref={bottomRef} />
       </div>
 
-      <footer className="border-t border-oc-border bg-oc-bg-mid/80 p-3">
-        <div className="flex gap-2">
+      <footer className="shrink-0 border-t border-oc-border bg-oc-bg-mid/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4">
+        <div className="flex items-end gap-2 sm:gap-3">
           <Textarea
             value={draft}
             onChange={(e) => onDraftChange(e.target.value)}
@@ -339,15 +396,15 @@ export function MessageThreadPanel() {
               }
             }}
             placeholder="Write a reply…"
-            className="min-h-[72px] flex-1 text-sm"
+            className="max-h-36 min-h-[64px] flex-1 resize-none text-sm leading-6"
             disabled={sendMut.isPending}
           />
-          <div className="flex flex-col gap-2">
+          <div className="flex shrink-0 flex-col gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-9 px-2"
+              className="hidden h-10 px-3 sm:inline-flex"
               disabled
               title="TODO: attachments pipeline"
             >
@@ -356,7 +413,7 @@ export function MessageThreadPanel() {
             <Button
               type="button"
               variant="primary"
-              className="h-9 px-3"
+              className="h-10 px-4"
               onClick={submit}
               disabled={sendMut.isPending || !draft.trim()}
             >
@@ -368,7 +425,7 @@ export function MessageThreadPanel() {
             </Button>
           </div>
         </div>
-        <p className="mt-2 text-[11px] text-oc-faint">
+        <p className="mt-2 hidden text-xs text-oc-faint sm:block">
           Press Enter to send • Shift + Enter for newline.
         </p>
       </footer>
@@ -388,7 +445,7 @@ function MessageBubble({ message }: { message: Message }) {
     >
       <div
         className={cn(
-          "max-w-[min(100%,520px)] rounded-2xl px-3 py-2 text-sm leading-relaxed shadow-sm ring-1",
+          "max-w-[min(88%,560px)] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ring-1 sm:max-w-[min(78%,600px)]",
           outbound
             ? "rounded-br-md bg-violet-600/90 text-white ring-violet-400/30"
             : "rounded-bl-md bg-oc-panel text-oc-text ring-oc-border",
@@ -399,7 +456,7 @@ function MessageBubble({ message }: { message: Message }) {
         </p>
         <div
           className={cn(
-            "mt-1 flex items-center justify-end gap-1 text-[10px]",
+            "mt-2 flex items-center justify-end gap-1.5 text-xs",
             outbound ? "text-violet-100/90" : "text-oc-faint",
           )}
         >

@@ -25,7 +25,7 @@ function channelTone(ch?: ConversationChannel) {
   return "neutral" as const;
 }
 
-export function ConversationListPanel() {
+export function ConversationListPanel({ selected }: { selected: boolean }) {
   const token = useAuthStore((s) => s.accessToken);
   const inboxSearch = useInboxStore((s) => s.inboxSearch);
   const setInboxSearch = useInboxStore((s) => s.setInboxSearch);
@@ -66,12 +66,29 @@ export function ConversationListPanel() {
   });
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-col border-oc-border bg-oc-bg-mid md:w-[min(100%,380px)] md:shrink-0 md:border-r">
-      <div className="border-b border-oc-border p-3">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-oc-faint">
-          Unified Inbox
-        </p>
-        <div className="mt-2 flex flex-wrap gap-1">
+    <section
+      className={cn(
+        "h-full min-h-0 min-w-0 flex-col border-oc-border bg-oc-bg-mid/90 md:flex md:w-[330px] md:shrink-0 md:border-r xl:w-[380px]",
+        selected ? "hidden md:flex" : "flex flex-1",
+      )}
+    >
+      <div className="shrink-0 border-b border-oc-border p-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
+              Unified Inbox
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-oc-text">
+              Conversations
+            </h2>
+          </div>
+          {data?.items.length ? (
+            <span className="rounded-full border border-oc-border bg-oc-panel px-2.5 py-1 text-xs font-medium text-oc-muted">
+              {data.items.length}
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
           {(
             [
               ["all", "All"],
@@ -85,7 +102,7 @@ export function ConversationListPanel() {
               type="button"
               onClick={() => setInboxFilter(key)}
               className={cn(
-                "rounded-md px-2 py-1 text-xs transition-colors",
+                "min-h-8 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
                 inboxFilter === key
                   ? "bg-oc-panel text-oc-accent-2 ring-1 ring-violet-500/35"
                   : "text-oc-muted hover:bg-oc-panel hover:text-oc-text",
@@ -99,22 +116,22 @@ export function ConversationListPanel() {
           value={inboxSearch}
           onChange={(e) => setInboxSearch(e.target.value)}
           placeholder="Search conversations…"
-          className="mt-3 h-9 text-sm"
+          className="mt-3 h-10 text-sm"
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {isLoading && (
-          <div className="space-y-2 p-3">
+          <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+              <Skeleton key={i} className="h-[92px] w-full rounded-lg" />
             ))}
           </div>
         )}
         {error && (
-          <p className="p-4 text-sm text-oc-danger">
+          <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-200">
             Could not load conversations. Check API URL and auth.
-          </p>
+          </div>
         )}
         {data?.items.map((c: Conversation) => (
           <ConversationRow
@@ -125,9 +142,15 @@ export function ConversationListPanel() {
           />
         ))}
         {!isLoading && !error && data?.items.length === 0 && (
-          <p className="p-6 text-center text-sm text-oc-muted">
-            No conversations match this view.
-          </p>
+          <div className="m-2 rounded-lg border border-dashed border-oc-border bg-oc-panel/30 p-6 text-center">
+            <p className="text-sm font-medium text-oc-text">
+              No conversations here
+            </p>
+            <p className="mt-1 text-sm text-oc-muted">
+              Website widget and WhatsApp conversations will appear here when
+              customers message you.
+            </p>
+          </div>
         )}
       </div>
     </section>
@@ -157,17 +180,17 @@ function ConversationRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex w-full gap-3 border-b border-oc-border/60 px-3 py-3 text-left transition-colors hover:bg-oc-panel/80",
-        active && "bg-oc-panel ring-1 ring-inset ring-violet-500/25",
+        "mb-2 flex w-full gap-3 rounded-xl border border-oc-border/60 bg-oc-bg-mid/60 px-3 py-3 text-left transition-colors hover:bg-oc-panel/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
+        active && "bg-oc-panel ring-1 ring-inset ring-violet-500/35",
       )}
     >
       <Avatar src={customer?.avatarUrl} name={name} size={40} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-oc-text">
+          <span className="truncate text-sm font-semibold text-oc-text">
             {name}
           </span>
-          <span className="shrink-0 text-[11px] text-oc-faint">
+          <span className="shrink-0 text-xs text-oc-faint">
             {c.lastMessageAt || c.updatedAt
               ? formatRelative(c.lastMessageAt || c.updatedAt || "")
               : ""}
@@ -178,12 +201,14 @@ function ConversationRow({
             {channelLabel(c.channel)}
           </Badge>
           {c.assignee && (
-            <span className="truncate text-[11px] text-oc-faint">
+            <span className="truncate text-xs text-oc-faint">
               {c.assignee.displayName || c.assignee.email}
             </span>
           )}
         </div>
-        <p className="mt-1 line-clamp-2 text-xs text-oc-muted">{preview}</p>
+        <p className="mt-2 line-clamp-2 text-sm leading-5 text-oc-muted">
+          {preview}
+        </p>
       </div>
       {unread > 0 && (
         <span className="mt-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-oc-accent px-1 text-[10px] font-bold text-white">

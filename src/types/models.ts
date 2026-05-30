@@ -137,6 +137,15 @@ export interface Message {
   updatedAt?: string;
 }
 
+export interface WidgetInstallation {
+  id: string;
+  publicKey: string;
+  enabled: boolean;
+  allowedDomains: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 // Future ticketing module.

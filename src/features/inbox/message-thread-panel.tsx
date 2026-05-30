@@ -23,6 +23,56 @@ import type { Message } from "@/types/models";
 import { Check, CheckCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+function isOptimisticMatch(candidate: Message, incoming: Message) {
+  if (!candidate.id.startsWith("temp-")) return false;
+  if (candidate.conversationId !== incoming.conversationId) return false;
+  if (candidate.sender !== incoming.sender) return false;
+  if (candidate.content !== incoming.content) return false;
+
+  const candidateTime = new Date(candidate.createdAt).getTime();
+  const incomingTime = new Date(incoming.createdAt).getTime();
+
+  if (!Number.isFinite(candidateTime) || !Number.isFinite(incomingTime)) {
+    return true;
+  }
+
+  return Math.abs(candidateTime - incomingTime) <= 30_000;
+}
+
+function reconcileMessage(
+  page: Paginated<Message> | undefined,
+  message: Message,
+) {
+  const base = page ?? { items: [] as Message[] };
+  const exists = base.items.some((item) => item.id === message.id);
+  const matchingOptimistic = base.items.find((item) =>
+    isOptimisticMatch(item, message),
+  );
+
+  if (exists) {
+    return {
+      ...base,
+      items: base.items.map((item) =>
+        item.id === message.id ? { ...item, ...message } : item,
+      ),
+    };
+  }
+
+  if (matchingOptimistic) {
+    return {
+      ...base,
+      items: base.items.map((item) =>
+        item.id === matchingOptimistic.id ? { ...item, ...message } : item,
+      ),
+    };
+  }
+
+  return {
+    ...base,
+    items: [...base.items, message],
+  };
+}
+
 export function MessageThreadPanel() {
   const token = useAuthStore((s) => s.accessToken);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
@@ -66,7 +116,7 @@ export function MessageThreadPanel() {
         content: text,
         sender: "AGENT",
         createdAt: new Date().toISOString(),
-        status: "SENT",
+        status: "PENDING",
       };
       qc.setQueryData(
         queryKeys.messages(selectedId),
@@ -75,14 +125,65 @@ export function MessageThreadPanel() {
           return { ...base, items: [...base.items, optimistic] };
         },
       );
-      return { prev };
+      return { optimistic, prev };
+    },
+    onSuccess: (message) => {
+      if (!selectedId) return;
+      qc.setQueryData(
+        queryKeys.messages(selectedId),
+        (old: Paginated<Message> | undefined) =>
+          reconcileMessage(old, message),
+      );
     },
     onError: (err, _text, ctx) => {
       toast.error(
         getErrorMessage(err, "Message could not be sent"),
       );
-      if (!selectedId || !ctx?.prev) return;
-      qc.setQueryData(queryKeys.messages(selectedId), ctx.prev);
+      if (!selectedId || !ctx?.optimistic) return;
+
+      const current = qc.getQueryData<Paginated<Message>>(
+        queryKeys.messages(selectedId),
+      );
+      const failedServerMessage = current?.items.some(
+        (item) =>
+          item.id !== ctx.optimistic.id &&
+          item.status === "FAILED" &&
+          isOptimisticMatch(ctx.optimistic, item),
+      );
+
+      if (failedServerMessage) return;
+
+      qc.setQueryData(
+        queryKeys.messages(selectedId),
+        (old: Paginated<Message> | undefined) => {
+          const base = old ?? { items: [] as Message[] };
+          const hasOptimistic = base.items.some(
+            (item) => item.id === ctx.optimistic.id,
+          );
+
+          if (!hasOptimistic) {
+            return {
+              ...base,
+              items: [
+                ...base.items,
+                {
+                  ...ctx.optimistic,
+                  status: "FAILED",
+                },
+              ],
+            };
+          }
+
+          return {
+            ...base,
+            items: base.items.map((item) =>
+              item.id === ctx.optimistic.id
+                ? { ...item, status: "FAILED" }
+                : item,
+            ),
+          };
+        },
+      );
     },
     onSettled: () => {
       if (!selectedId) return;
@@ -292,6 +393,12 @@ function DeliveryTick({
 }) {
   if (pending) {
     return <Loader2 className="h-3 w-3 animate-spin opacity-80" />;
+  }
+  if (state === "PENDING") {
+    return <Loader2 className="h-3 w-3 animate-spin opacity-80" />;
+  }
+  if (state === "FAILED") {
+    return <span className="text-[10px] font-medium">Failed</span>;
   }
   if (state === "READ") {
     return <CheckCheck className="h-3.5 w-3.5 text-sky-200" />;

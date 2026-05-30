@@ -7,6 +7,7 @@
  */
 export const SOCKET_EVENTS = {
   NEW_MESSAGE: "new_message",
+  MESSAGE_STATUS_UPDATED: "message_status_updated",
 
   // Planned realtime events
   CONVERSATION_UPDATED: "conversation:updated",

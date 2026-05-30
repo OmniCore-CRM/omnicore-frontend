@@ -102,6 +102,7 @@ export type MessageSender = "CUSTOMER" | "AGENT" | "SYSTEM";
 
 // Backend-aligned delivery lifecycle.
 export type MessageStatus =
+  | "PENDING"
   | "SENT"
   | "DELIVERED"
   | "READ"

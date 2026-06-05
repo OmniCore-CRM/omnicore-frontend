@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listConversations } from "@/api/conversations";
+import { listConversations, listMessages } from "@/api/conversations";
 import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
 import { useInboxStore } from "@/stores/inbox-store";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatRelative } from "@/lib/format-time";
-import type { ConversationChannel, Conversation } from "@/types/models";
+import type { ConversationChannel, Conversation, Message } from "@/types/models";
 
 function channelLabel(ch?: ConversationChannel) {
   if (!ch) return "Channel";
@@ -23,6 +23,66 @@ function channelTone(ch?: ConversationChannel) {
   if (ch === "WHATSAPP") return "success" as const;
   if (ch === "EMAIL") return "accent" as const;
   return "neutral" as const;
+}
+
+function isMeaningfulPreview(value?: string | null) {
+  return Boolean(value?.trim());
+}
+
+function hasActivityAfterCreation(c: Conversation) {
+  if (!c.updatedAt || !c.createdAt) return Boolean(c.updatedAt);
+
+  const updatedAt = new Date(c.updatedAt).getTime();
+  const createdAt = new Date(c.createdAt).getTime();
+
+  if (!Number.isFinite(updatedAt) || !Number.isFinite(createdAt)) {
+    return Boolean(c.updatedAt);
+  }
+
+  return updatedAt > createdAt + 1000;
+}
+
+function getConversationPreview(
+  c: Conversation,
+  fetchedMessages?: Message[],
+  loadingMessages?: boolean,
+) {
+  if (isMeaningfulPreview(c.lastMessagePreview)) {
+    return c.lastMessagePreview!.trim();
+  }
+
+  const latestMessage =
+    c.latestMessage ||
+    c.lastMessage ||
+    (Array.isArray(c.messages) && c.messages.length
+      ? c.messages[c.messages.length - 1]
+      : null);
+
+  if (isMeaningfulPreview(latestMessage?.content)) {
+    return latestMessage!.content.trim();
+  }
+
+  const fetchedLatestMessage = fetchedMessages?.[fetchedMessages.length - 1];
+
+  if (isMeaningfulPreview(fetchedLatestMessage?.content)) {
+    return fetchedLatestMessage!.content.trim();
+  }
+
+  if (c.subject?.trim()) {
+    return c.subject.trim();
+  }
+
+  if (loadingMessages) {
+    return `${channelLabel(c.channel)} conversation loading preview`;
+  }
+
+  if (hasActivityAfterCreation(c)) {
+    return `${channelLabel(c.channel)} conversation updated ${
+      c.updatedAt ? formatRelative(c.updatedAt) : "recently"
+    }`;
+  }
+
+  return "No messages yet";
 }
 
 export function ConversationListPanel({ selected }: { selected: boolean }) {
@@ -167,12 +227,28 @@ function ConversationRow({
   onSelect: () => void;
 }) {
   const customer = c.customer;
+  const token = useAuthStore((s) => s.accessToken);
   const name =
     customer?.firstName ||
     customer?.email ||
     customer?.phone ||
     "Customer";
-  const preview = c.lastMessagePreview || "No messages yet";
+  const needsMessagePreview =
+    !c.lastMessagePreview &&
+    !c.latestMessage &&
+    !c.lastMessage &&
+    !c.messages?.length;
+  const { data: messagePage, isLoading: previewLoading } = useQuery({
+    queryKey: queryKeys.messages(c.id),
+    queryFn: () => listMessages(token!, c.id, { limit: 80 }),
+    enabled: !!token && needsMessagePreview,
+    staleTime: 30_000,
+  });
+  const preview = getConversationPreview(
+    c,
+    messagePage?.items,
+    needsMessagePreview && previewLoading,
+  );
   const unread = c.unreadCount ?? 0;
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -13,7 +13,15 @@ import {
   listWidgetInstallations,
   updateWidgetInstallation,
 } from "@/api/widget";
+import {
+  createSavedReply,
+  deleteSavedReply,
+  listSavedReplies,
+  updateSavedReply,
+} from "@/api/saved-replies";
 import { getErrorMessage } from "@/api/errors";
+import { queryKeys } from "@/constants/query-keys";
+import type { SavedReply } from "@/types/models";
 
 const tabs = [
   "Profile",
@@ -21,6 +29,7 @@ const tabs = [
   "Team & roles",
   "Channels",
   "Widget",
+  "Saved replies",
   "Notifications",
 ] as const;
 
@@ -351,6 +360,13 @@ export default function SettingsPage() {
             </Card>
           )}
 
+          {tab === "Saved replies" && (
+            <SavedRepliesSettings
+              token={token ?? ""}
+              canMutate={user?.role !== "VIEWER"}
+            />
+          )}
+
           {tab === "Notifications" && (
             <Card className="space-y-3 p-5">
               <h2 className="text-sm font-semibold text-oc-text">
@@ -364,6 +380,264 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SavedRepliesSettings({
+  token,
+  canMutate,
+}: {
+  token: string;
+  canMutate: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  const repliesQuery = useQuery({
+    queryKey: queryKeys.savedReplies(),
+    queryFn: () => listSavedReplies(token),
+    enabled: Boolean(token),
+  });
+
+  const replies = useMemo(() => repliesQuery.data ?? [], [repliesQuery.data]);
+  const filteredReplies = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return replies;
+
+    return replies.filter(
+      (reply) =>
+        reply.title.toLowerCase().includes(needle) ||
+        reply.content.toLowerCase().includes(needle),
+    );
+  }, [replies, search]);
+
+  const resetForm = () => {
+    setTitle("");
+    setContent("");
+    setEditingId(null);
+  };
+
+  const createMutation = useMutation({
+    mutationFn: () => createSavedReply(token, { title, content }),
+    onSuccess: async () => {
+      resetForm();
+      await queryClient.invalidateQueries({
+        queryKey: ["saved-replies"],
+      });
+      toast.success("Saved reply created");
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not create saved reply"));
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () => updateSavedReply(token, editingId!, { title, content }),
+    onSuccess: async () => {
+      resetForm();
+      await queryClient.invalidateQueries({
+        queryKey: ["saved-replies"],
+      });
+      toast.success("Saved reply updated");
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not update saved reply"));
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (replyId: string) => deleteSavedReply(token, replyId),
+    onSuccess: async () => {
+      if (editingId) resetForm();
+      await queryClient.invalidateQueries({
+        queryKey: ["saved-replies"],
+      });
+      toast.success("Saved reply deleted");
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not delete saved reply"));
+    },
+  });
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canMutate || !title.trim() || !content.trim()) return;
+
+    if (editingId) {
+      updateMutation.mutate();
+      return;
+    }
+
+    createMutation.mutate();
+  };
+
+  const startEdit = (reply: SavedReply) => {
+    setEditingId(reply.id);
+    setTitle(reply.title);
+    setContent(reply.content);
+  };
+
+  const busy =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    deleteMutation.isPending;
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-oc-text">
+            Saved replies
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-oc-muted">
+            Create reusable plain-text responses that agents can insert into
+            the inbox composer and edit before sending.
+          </p>
+        </div>
+
+        <form onSubmit={submit} className="grid gap-4">
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Title
+            <Input
+              className="mt-2"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Order status follow-up"
+              disabled={!canMutate || busy}
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Reply content
+            <Textarea
+              className="mt-2 min-h-32"
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              placeholder="Hi, thanks for reaching out. I am checking this now and will update you shortly."
+              disabled={!canMutate || busy}
+              required
+            />
+          </label>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button
+              type="submit"
+              disabled={!canMutate || busy || !title.trim() || !content.trim()}
+            >
+              {editingId
+                ? updateMutation.isPending
+                  ? "Saving..."
+                  : "Save reply"
+                : createMutation.isPending
+                  ? "Creating..."
+                  : "Create reply"}
+            </Button>
+            {editingId && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy}
+                onClick={resetForm}
+              >
+                Cancel edit
+              </Button>
+            )}
+            {!canMutate && (
+              <p className="text-xs text-oc-faint">
+                Viewer users can read saved replies but cannot modify them.
+              </p>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-oc-text">
+              Reply library
+            </h3>
+            <p className="mt-1 text-sm text-oc-muted">
+              {replies.length} saved {replies.length === 1 ? "reply" : "replies"}
+            </p>
+          </div>
+          <label className="min-w-0 text-xs font-semibold uppercase text-oc-faint sm:w-72">
+            Search
+            <Input
+              className="mt-2"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Find replies..."
+            />
+          </label>
+        </div>
+
+        {repliesQuery.isLoading && (
+          <p className="text-sm text-oc-muted">Loading saved replies...</p>
+        )}
+
+        {repliesQuery.error && (
+          <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-200">
+            {getErrorMessage(repliesQuery.error, "Could not load saved replies")}
+          </div>
+        )}
+
+        {!repliesQuery.isLoading &&
+          !repliesQuery.error &&
+          filteredReplies.length === 0 && (
+            <div className="rounded-lg border border-dashed border-oc-border bg-oc-bg/40 p-5 text-sm text-oc-muted">
+              {search.trim() ? "No saved replies match your search." : "No saved replies yet."}
+            </div>
+          )}
+
+        <div className="space-y-3">
+          {filteredReplies.map((reply) => (
+            <div
+              key={reply.id}
+              className="rounded-lg border border-oc-border bg-oc-bg/45 p-4"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-oc-text">
+                    {reply.title}
+                  </p>
+                  <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-oc-muted">
+                    {reply.content}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() => startEdit(reply)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() => {
+                      if (window.confirm("Delete this saved reply?")) {
+                        deleteMutation.mutate(reply.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

@@ -10,6 +10,8 @@ export const queryKeys = {
   tickets: (params: Record<string, string | undefined>) =>
     ["tickets", params] as const,
   ticket: (id: string) => ["ticket", id] as const,
+  savedReplies: (params?: Record<string, string | undefined>) =>
+    ["saved-replies", params ?? {}] as const,
   analyticsOverview: ["analytics", "overview"] as const,
   teamMembers: (companyId: string) => ["team", companyId] as const,
 };

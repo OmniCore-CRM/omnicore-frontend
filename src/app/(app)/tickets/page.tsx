@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -27,12 +27,15 @@ import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 import type {
   AuthUser,
+  Message,
   Ticket,
+  TicketActivity,
   TicketPriority,
   TicketStatus,
 } from "@/types/models";
 import {
   ArrowLeft,
+  CheckCircle2,
   CircleDot,
   Clock3,
   FileText,
@@ -40,7 +43,9 @@ import {
   LifeBuoy,
   MessageSquare,
   Plus,
+  Reply,
   Search,
+  Timer,
   TicketIcon,
   UserRound,
 } from "lucide-react";
@@ -52,6 +57,14 @@ const ticketStatuses: TicketStatus[] = [
   "RESOLVED",
   "CLOSED",
 ];
+
+const allowedStatusTransitions: Record<TicketStatus, TicketStatus[]> = {
+  OPEN: ["PENDING", "ESCALATED"],
+  PENDING: ["OPEN", "RESOLVED"],
+  ESCALATED: ["PENDING", "RESOLVED"],
+  RESOLVED: ["CLOSED"],
+  CLOSED: [],
+};
 
 const ticketPriorities: TicketPriority[] = [
   "LOW",
@@ -95,6 +108,116 @@ const formatActivityAction = (action: string) =>
     .toLowerCase()
     .replace(/^\w/, (char) => char.toUpperCase());
 
+const formatMetadataValue = (value: unknown) =>
+  typeof value === "string" && value.trim() ? value : null;
+
+const formatActivityTitle = (item: TicketActivity) => {
+  const from = formatMetadataValue(item.metadata?.from);
+  const to = formatMetadataValue(item.metadata?.to);
+
+  if (item.action === "STATUS_CHANGED" && from && to) {
+    return `Status changed from ${from} to ${to}`;
+  }
+
+  if (item.action === "PRIORITY_CHANGED" && from && to) {
+    return `Priority changed from ${from} to ${to}`;
+  }
+
+  if (item.action === "ASSIGNED") {
+    return from && to ? "Ticket reassigned" : "Ticket assigned";
+  }
+
+  if (item.action === "UNASSIGNED") return "Ticket unassigned";
+  if (item.action === "NOTE_ADDED") return "Internal note added";
+  if (item.action === "TICKET_CREATED_FROM_WIDGET") {
+    return "Ticket created from widget";
+  }
+  if (item.action === "MESSAGE_RECEIVED_ON_WIDGET") {
+    return "Widget message received";
+  }
+
+  return formatActivityAction(item.action);
+};
+
+const getStatusOptions = (status: TicketStatus) =>
+  Array.from(new Set([status, ...allowedStatusTransitions[status]]));
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+};
+
+const formatDuration = (minutes?: number | null) => {
+  if (minutes === null || minutes === undefined) return "—";
+  if (minutes < 1) return "Less than 1m";
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours < 24) {
+    return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+
+  return remainingHours ? `${days}d ${remainingHours}h` : `${days}d`;
+};
+
+type TimelineItem = {
+  id: string;
+  createdAt: string;
+  title: string;
+  actor: string;
+  content?: string;
+  kind: "activity" | "customer_message" | "agent_reply";
+};
+
+const messageTimelineTitle = (message: Message) => {
+  if (message.sender === "AGENT") return "Agent reply sent";
+  if (message.sender === "CUSTOMER") return "Customer message received";
+  return "System message recorded";
+};
+
+const buildTimelineItems = (
+  activity: Ticket["activities"],
+  messages: Message[] = [],
+) =>
+  [
+    ...(activity ?? []).map<TimelineItem>((item) => ({
+      id: `activity-${item.id}`,
+      createdAt: item.createdAt,
+      title: formatActivityTitle(item),
+      actor: displayUser(item.actor),
+      kind: "activity",
+    })),
+    ...messages.map<TimelineItem>((message) => ({
+      id: `message-${message.id}`,
+      createdAt: message.createdAt,
+      title: messageTimelineTitle(message),
+      actor:
+        message.sender === "AGENT"
+          ? "Support team"
+          : message.sender === "CUSTOMER"
+            ? "Customer"
+            : "System",
+      content: message.content,
+      kind:
+        message.sender === "AGENT"
+          ? "agent_reply"
+          : message.sender === "CUSTOMER"
+            ? "customer_message"
+            : "activity",
+    })),
+  ].sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+
 const initials = (value: string) =>
   value
     .split(/\s+/)
@@ -107,9 +230,10 @@ const fieldControlClass =
   "mt-2 h-11 w-full min-w-0 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
 
 function activityIconClass(action: string) {
-  if (action.includes("NOTE")) return "bg-violet-500/20 text-violet-200";
-  if (action.includes("ASSIGN")) return "bg-sky-500/20 text-sky-200";
-  if (action.includes("STATUS") || action.includes("RESOLVED")) {
+  const key = action.toUpperCase();
+  if (key.includes("NOTE")) return "bg-violet-500/20 text-violet-200";
+  if (key.includes("ASSIGN")) return "bg-sky-500/20 text-sky-200";
+  if (key.includes("STATUS") || key.includes("RESOLVED")) {
     return "bg-emerald-500/20 text-emerald-200";
   }
   return "bg-oc-panel text-oc-muted";
@@ -155,7 +279,11 @@ export default function TicketsPage() {
     enabled: !!token,
   });
 
-  const { data: ticket, isLoading: tLoading } = useQuery({
+  const {
+    data: ticket,
+    isLoading: tLoading,
+    error: ticketError,
+  } = useQuery({
     queryKey: queryKeys.ticket(selectedId ?? "_"),
     queryFn: () => getTicket(token!, selectedId!),
     enabled: !!token && !!selectedId,
@@ -580,6 +708,7 @@ export default function TicketsPage() {
         users={users}
         notes={notes}
         activity={activity}
+        error={ticketError}
         noteDraft={noteDraft}
         setNoteDraft={setNoteDraft}
         onBack={() => setSelectedId(null)}
@@ -825,6 +954,62 @@ function EmptyTicketsState({
   );
 }
 
+function ConversationMessagePreview({
+  label,
+  message,
+  empty,
+}: {
+  label: string;
+  message?: Message | null;
+  empty: string;
+}) {
+  return (
+    <div className="rounded-lg border border-oc-border/60 bg-oc-bg/45 p-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase text-oc-faint">
+          {label}
+        </p>
+        {message?.createdAt && (
+          <span className="shrink-0 text-xs text-oc-faint">
+            {formatRelative(message.createdAt)}
+          </span>
+        )}
+      </div>
+      <p
+        className={cn(
+          "line-clamp-3 whitespace-pre-wrap text-sm leading-6",
+          message ? "text-oc-text" : "text-oc-muted",
+        )}
+      >
+        {message?.content || empty}
+      </p>
+    </div>
+  );
+}
+
+function MetricItem({
+  label,
+  value,
+  hint,
+  icon,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-oc-border/60 bg-oc-bg/45 p-3">
+      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-oc-faint">
+        <span className="text-oc-accent">{icon}</span>
+        {label}
+      </div>
+      <p className="text-sm font-semibold text-oc-text">{value}</p>
+      {hint && <p className="mt-1 text-xs text-oc-faint">{hint}</p>}
+    </div>
+  );
+}
+
 function TicketDetailPanel({
   ticket,
   selectedId,
@@ -833,6 +1018,7 @@ function TicketDetailPanel({
   users,
   notes,
   activity,
+  error,
   noteDraft,
   setNoteDraft,
   onBack,
@@ -848,6 +1034,7 @@ function TicketDetailPanel({
   users: AuthUser[];
   notes: Ticket["notes"];
   activity: Ticket["activities"];
+  error: unknown;
   noteDraft: string;
   setNoteDraft: (value: string) => void;
   onBack: () => void;
@@ -860,6 +1047,14 @@ function TicketDetailPanel({
   noteMutate: () => void;
   addingNote: boolean;
 }) {
+  const latestCustomerMessage = ticket?.conversation?.latestCustomerMessage;
+  const latestAgentReply = ticket?.conversation?.latestAgentReply;
+  const timelineItems = buildTimelineItems(
+    activity,
+    ticket?.conversation?.recentMessages,
+  );
+  const metrics = ticket?.metrics;
+
   return (
     <aside
       className={cn(
@@ -911,7 +1106,13 @@ function TicketDetailPanel({
             </div>
           )}
 
-          {ticket && (
+          {selectedId && !loading && Boolean(error) && (
+            <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-5 text-sm text-red-200">
+              {getErrorMessage(error, "Could not load ticket details.")}
+            </div>
+          )}
+
+          {ticket && !Boolean(error) && (
             <div className="space-y-5">
               <Card className="space-y-4 p-5">
                 <div className="flex flex-wrap items-center gap-2">
@@ -956,7 +1157,7 @@ function TicketDetailPanel({
                       }
                       className={fieldControlClass}
                     >
-                      {ticketStatuses.map((s) => (
+                      {getStatusOptions(ticket.status).map((s) => (
                         <option key={s} value={s}>
                           {s}
                         </option>
@@ -1056,6 +1257,68 @@ function TicketDetailPanel({
                 </dl>
               </Card>
 
+              <Card className="space-y-4 p-5">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase text-oc-faint">
+                    Conversation context
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-oc-muted">
+                    Linked customer messages and agent replies from the source
+                    conversation.
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  <ConversationMessagePreview
+                    label="Latest customer message"
+                    message={latestCustomerMessage}
+                    empty="No customer message found for this ticket."
+                  />
+                  <ConversationMessagePreview
+                    label="Latest agent reply"
+                    message={latestAgentReply}
+                    empty="No agent reply has been sent yet."
+                  />
+                </div>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <h3 className="text-xs font-semibold uppercase text-oc-faint">
+                  Ticket metrics
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <MetricItem
+                    label="Created"
+                    value={formatDateTime(metrics?.createdAt ?? ticket.createdAt)}
+                    icon={<Clock3 className="h-4 w-4" />}
+                  />
+                  <MetricItem
+                    label="Updated"
+                    value={formatDateTime(metrics?.updatedAt ?? ticket.updatedAt)}
+                    icon={<Clock3 className="h-4 w-4" />}
+                  />
+                  <MetricItem
+                    label="First response"
+                    value={formatDuration(metrics?.firstResponseTimeMinutes)}
+                    hint={
+                      metrics?.firstResponseAt
+                        ? formatDateTime(metrics.firstResponseAt)
+                        : "No agent response yet"
+                    }
+                    icon={<Reply className="h-4 w-4" />}
+                  />
+                  <MetricItem
+                    label="Resolved"
+                    value={formatDateTime(metrics?.resolvedAt)}
+                    icon={<CheckCircle2 className="h-4 w-4" />}
+                  />
+                  <MetricItem
+                    label="Time open"
+                    value={formatDuration(metrics?.timeOpenMinutes)}
+                    icon={<Timer className="h-4 w-4" />}
+                  />
+                </div>
+              </Card>
+
               <Card className="space-y-5 p-5">
                 <div>
                   <h3 className="text-xs font-semibold uppercase text-oc-faint">
@@ -1129,14 +1392,14 @@ function TicketDetailPanel({
                 <h3 className="text-xs font-semibold uppercase text-oc-faint">
                   Activity history
                 </h3>
-                {!activity?.length ? (
+                {!timelineItems.length ? (
                   <p className="rounded-lg border border-dashed border-oc-border bg-oc-bg/40 p-4 text-sm text-oc-muted">
                     No activity yet.
                   </p>
                 ) : (
                   <div className="relative space-y-0 pl-3">
                     <span className="absolute bottom-4 left-[25px] top-4 w-px bg-oc-border/70" />
-                    {activity.map((item) => (
+                    {timelineItems.map((item) => (
                       <div
                         key={item.id}
                         className="relative flex gap-3 pb-5 last:pb-0"
@@ -1144,19 +1407,35 @@ function TicketDetailPanel({
                         <span
                           className={cn(
                             "relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-oc-border",
-                            activityIconClass(item.action),
+                            item.kind === "customer_message" &&
+                              "bg-emerald-500/20 text-emerald-200",
+                            item.kind === "agent_reply" &&
+                              "bg-violet-500/20 text-violet-200",
+                            item.kind === "activity" &&
+                              activityIconClass(item.title),
                           )}
                         >
-                          <Clock3 className="h-3.5 w-3.5" />
+                          {item.kind === "agent_reply" ? (
+                            <Reply className="h-3.5 w-3.5" />
+                          ) : item.kind === "customer_message" ? (
+                            <MessageSquare className="h-3.5 w-3.5" />
+                          ) : (
+                            <Clock3 className="h-3.5 w-3.5" />
+                          )}
                         </span>
                         <div className="min-w-0 flex-1 rounded-lg border border-oc-border/60 bg-oc-bg/55 px-3 py-3 text-sm text-oc-muted">
                           <p className="font-medium text-oc-text">
-                            {formatActivityAction(item.action)}
+                            {item.title}
                           </p>
                           <p className="mt-1 text-xs text-oc-faint">
-                            {displayUser(item.actor)} ·{" "}
+                            {item.actor} ·{" "}
                             {formatRelative(item.createdAt)}
                           </p>
+                          {item.content && (
+                            <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-oc-muted">
+                              {item.content}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}

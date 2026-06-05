@@ -214,6 +214,17 @@ export interface WidgetInstallation {
   updatedAt?: string;
 }
 
+export interface SavedReply {
+  id: string;
+  companyId: string;
+  title: string;
+  content: string;
+  createdById: string;
+  createdBy?: AuthUser | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type TicketStatus =
   | "OPEN"

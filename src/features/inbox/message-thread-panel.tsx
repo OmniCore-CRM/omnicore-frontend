@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -9,6 +9,7 @@ import {
   sendMessage,
 } from "@/api/conversations";
 import { createTicketFromConversation } from "@/api/tickets";
+import { listSavedReplies } from "@/api/saved-replies";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useConversationPresence } from "@/hooks/use-conversation-presence";
@@ -22,8 +23,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
-import type { Message } from "@/types/models";
-import { ArrowLeft, Check, CheckCheck, Info, Loader2, Wifi, WifiOff } from "lucide-react";
+import type { Message, SavedReply } from "@/types/models";
+import {
+  ArrowLeft,
+  Check,
+  CheckCheck,
+  Info,
+  Loader2,
+  Search,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 import { toast } from "sonner";
 
 function isOptimisticMatch(candidate: Message, incoming: Message) {
@@ -102,6 +112,12 @@ export function MessageThreadPanel({
   const messagesQuery = useQuery({
     queryKey: queryKeys.messages(selectedId ?? "_"),
     queryFn: () => listMessages(token!, selectedId!, { limit: 80 }),
+    enabled: !!token && !!selectedId,
+  });
+
+  const savedRepliesQuery = useQuery({
+    queryKey: queryKeys.savedReplies(),
+    queryFn: () => listSavedReplies(token!),
     enabled: !!token && !!selectedId,
   });
 
@@ -218,6 +234,20 @@ export function MessageThreadPanel({
   });
 
   const [draft, setDraft] = useState("");
+  const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
+  const [savedReplySearch, setSavedReplySearch] = useState("");
+
+  const filteredSavedReplies = useMemo(() => {
+    const replies = savedRepliesQuery.data ?? [];
+    const needle = savedReplySearch.trim().toLowerCase();
+    if (!needle) return replies;
+
+    return replies.filter(
+      (reply) =>
+        reply.title.toLowerCase().includes(needle) ||
+        reply.content.toLowerCase().includes(needle),
+    );
+  }, [savedRepliesQuery.data, savedReplySearch]);
 
   const onDraftChange = (v: string) => {
     setDraft(v);
@@ -233,6 +263,16 @@ export function MessageThreadPanel({
     if (!text || !selectedId || sendMut.isPending) return;
     sendMut.mutate(text);
     setDraft("");
+    setSavedRepliesOpen(false);
+  };
+
+  const insertSavedReply = (reply: SavedReply) => {
+    setDraft((current) => {
+      if (!current.trim()) return reply.content;
+      return `${current.replace(/\s+$/u, "")}\n\n${reply.content}`;
+    });
+    setSavedRepliesOpen(false);
+    setSavedReplySearch("");
   };
 
   if (!selectedId) {
@@ -383,6 +423,80 @@ export function MessageThreadPanel({
       </div>
 
       <footer className="shrink-0 border-t border-oc-border bg-oc-bg-mid/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4">
+        {savedRepliesOpen && (
+          <div className="mb-3 max-h-[min(360px,45vh)] overflow-hidden rounded-xl border border-oc-border bg-oc-panel shadow-oc-card">
+            <div className="border-b border-oc-border p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-oc-text">
+                    Saved replies
+                  </p>
+                  <p className="mt-1 text-xs text-oc-muted">
+                    Insert a reusable reply, then edit it before sending.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                  onClick={() => setSavedRepliesOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+              <label className="relative mt-3 block">
+                <span className="sr-only">Search saved replies</span>
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-oc-faint" />
+                <input
+                  value={savedReplySearch}
+                  onChange={(event) => setSavedReplySearch(event.target.value)}
+                  placeholder="Search title or content..."
+                  className="h-10 w-full rounded-lg border border-oc-border bg-oc-bg px-9 text-sm text-oc-text placeholder:text-oc-faint focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+                />
+              </label>
+            </div>
+            <div className="max-h-[240px] overflow-y-auto p-2">
+              {savedRepliesQuery.isLoading && (
+                <p className="p-3 text-sm text-oc-muted">
+                  Loading saved replies...
+                </p>
+              )}
+              {savedRepliesQuery.error && (
+                <p className="rounded-lg border border-red-900/40 bg-red-950/20 p-3 text-sm text-red-200">
+                  {getErrorMessage(
+                    savedRepliesQuery.error,
+                    "Could not load saved replies",
+                  )}
+                </p>
+              )}
+              {!savedRepliesQuery.isLoading &&
+                !savedRepliesQuery.error &&
+                filteredSavedReplies.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-oc-border bg-oc-bg/40 p-4 text-sm text-oc-muted">
+                    {savedReplySearch.trim()
+                      ? "No saved replies match your search."
+                      : "No saved replies yet."}
+                  </p>
+                )}
+              {filteredSavedReplies.map((reply) => (
+                <button
+                  key={reply.id}
+                  type="button"
+                  onClick={() => insertSavedReply(reply)}
+                  className="mb-2 block w-full rounded-lg border border-oc-border/60 bg-oc-bg/50 p-3 text-left transition-colors last:mb-0 hover:bg-oc-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+                >
+                  <span className="block truncate text-sm font-semibold text-oc-text">
+                    {reply.title}
+                  </span>
+                  <span className="mt-1 line-clamp-2 block whitespace-pre-wrap text-sm leading-5 text-oc-muted">
+                    {reply.content}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-end gap-2 sm:gap-3">
           <Textarea
             value={draft}
@@ -402,13 +516,14 @@ export function MessageThreadPanel({
           <div className="flex shrink-0 flex-col gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant={savedRepliesOpen ? "secondary" : "outline"}
               size="sm"
-              className="hidden h-10 px-3 sm:inline-flex"
-              disabled
-              title="TODO: attachments pipeline"
+              className="h-10 px-3"
+              onClick={() => setSavedRepliesOpen((open) => !open)}
+              title="Open saved replies"
             >
-              +
+              <span className="hidden sm:inline">Replies</span>
+              <span className="sm:hidden">Reply</span>
             </Button>
             <Button
               type="button"

@@ -21,6 +21,7 @@ export async function listCustomers(
   const qs = q.toString();
   const raw = await apiFetch<unknown>(`/customers${qs ? `?${qs}` : ""}`, {
     token,
+    cache: "no-store",
   });
   return normalizePaginated<Customer>(raw);
 }
@@ -29,7 +30,7 @@ export async function getCustomer(
   token: string,
   id: string,
 ): Promise<Customer> {
-  return apiFetch<Customer>(`/customers/${id}`, { token });
+  return apiFetch<Customer>(`/customers/${id}`, { token, cache: "no-store" });
 }
 
 // Partial customer updates.

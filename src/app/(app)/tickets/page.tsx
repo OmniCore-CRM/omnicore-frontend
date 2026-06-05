@@ -1,6 +1,14 @@
 "use client";
 
-import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  Suspense,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -240,14 +248,32 @@ function activityIconClass(action: string) {
 }
 
 export default function TicketsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center p-6 text-sm text-oc-muted">
+          Loading tickets…
+        </div>
+      }
+    >
+      <TicketsWorkspace />
+    </Suspense>
+  );
+}
+
+function TicketsWorkspace() {
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
   const socket = useSocket();
+  const searchParams = useSearchParams();
+  const initialTicketId = searchParams.get("ticketId");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [priority, setPriority] = useState<TicketPriority | "">("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialTicketId,
+  );
   const [creating, setCreating] = useState(false);
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");

@@ -36,6 +36,7 @@ import {
   CircleDot,
   Clock3,
   FileText,
+  Eye,
   LifeBuoy,
   MessageSquare,
   Plus,
@@ -103,7 +104,7 @@ const initials = (value: string) =>
     .join("") || "OC";
 
 const fieldControlClass =
-  "mt-2 h-11 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
+  "mt-2 h-11 w-full min-w-0 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
 
 function activityIconClass(action: string) {
   if (action.includes("NOTE")) return "bg-violet-500/20 text-violet-200";
@@ -307,10 +308,10 @@ export default function TicketsPage() {
           </Button>
         </header>
 
-        <Card className="mb-5 p-4 md:p-5">
+        <Card className="mb-5 overflow-hidden p-4 md:p-5">
           <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
-            <div className="grid flex-1 gap-3 md:grid-cols-[minmax(260px,1fr)_180px_180px]">
-              <label className="block text-xs font-semibold uppercase text-oc-faint">
+            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(150px,180px)_minmax(150px,180px)]">
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint sm:col-span-2 xl:col-span-1">
                 Search
                 <span className="relative mt-2 block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-oc-faint" />
@@ -323,7 +324,7 @@ export default function TicketsPage() {
                   />
                 </span>
               </label>
-              <label className="block text-xs font-semibold uppercase text-oc-faint">
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
                 Status
                 <select
                   value={status}
@@ -341,7 +342,7 @@ export default function TicketsPage() {
                   ))}
                 </select>
               </label>
-              <label className="block text-xs font-semibold uppercase text-oc-faint">
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
                 Priority
                 <select
                   value={priority}
@@ -480,26 +481,29 @@ export default function TicketsPage() {
             <table className="w-full table-fixed text-left text-sm">
               <thead className="border-b border-oc-border bg-oc-bg/70 text-xs uppercase text-oc-faint">
                 <tr>
-                  <th className="w-[28%] px-5 py-4 font-semibold">Subject</th>
-                  <th className="w-[16%] px-3 py-4 font-semibold">Status</th>
-                  <th className="w-[14%] px-3 py-4 font-semibold">Priority</th>
-                  <th className="w-[14%] px-4 py-4 font-semibold">Customer</th>
-                  <th className="w-[14%] px-4 py-4 font-semibold">Assignee</th>
-                  <th className="w-[14%] px-4 py-4 font-semibold">Updated</th>
+                  <th className="w-[25%] px-5 py-4 font-semibold">Subject</th>
+                  <th className="w-[14%] px-3 py-4 font-semibold">Status</th>
+                  <th className="w-[12%] px-3 py-4 font-semibold">Priority</th>
+                  <th className="w-[13%] px-4 py-4 font-semibold">Customer</th>
+                  <th className="w-[13%] px-4 py-4 font-semibold">Assignee</th>
+                  <th className="w-[11%] px-4 py-4 font-semibold">Updated</th>
+                  <th className="w-[12%] px-4 py-4 text-right font-semibold">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading &&
                   Array.from({ length: 6 }).map((_, i) => (
                     <tr key={i} className="border-b border-oc-border/60">
-                      <td className="px-4 py-4" colSpan={6}>
+                      <td className="px-4 py-4" colSpan={7}>
                         <Skeleton className="h-10 w-full" />
                       </td>
                     </tr>
                   ))}
                 {error && (
                   <tr>
-                    <td className="px-4 py-8" colSpan={6}>
+                    <td className="px-4 py-8" colSpan={7}>
                       <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-200">
                         {getErrorMessage(error, "Failed to load tickets.")}
                       </div>
@@ -508,7 +512,7 @@ export default function TicketsPage() {
                 )}
                 {!isLoading && !error && tickets.length === 0 && (
                   <tr>
-                    <td className="px-5 py-16" colSpan={6}>
+                    <td className="px-5 py-16" colSpan={7}>
                       <EmptyTicketsState
                         filtered={Boolean(q || status || priority)}
                         canCreate={canMutate}
@@ -671,6 +675,22 @@ function TicketRow({
       <td className="px-4 py-5 text-sm text-oc-muted">
         {ticket.updatedAt ? formatRelative(ticket.updatedAt) : "—"}
       </td>
+      <td className="px-4 py-5 text-right">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+          className="h-9 gap-2 px-3"
+          aria-label={`View details for ${ticket.subject}`}
+        >
+          <Eye className="h-4 w-4" />
+          View
+        </Button>
+      </td>
     </tr>
   );
 }
@@ -685,9 +705,7 @@ function TicketCard({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <article
       className={cn(
         "w-full rounded-xl border border-oc-border bg-oc-bg-mid/80 p-4 text-left transition-colors hover:bg-oc-panel/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
         active &&
@@ -734,7 +752,17 @@ function TicketCard({
           <span className="truncate">Assignee: {displayUser(ticket.assignee)}</span>
         </span>
       </div>
-    </button>
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={onSelect}
+        className="mt-4 h-10 w-full gap-2"
+        aria-label={`View details for ${ticket.subject}`}
+      >
+        <Eye className="h-4 w-4" />
+        View details
+      </Button>
+    </article>
   );
 }
 

@@ -31,7 +31,18 @@ import type {
   TicketPriority,
   TicketStatus,
 } from "@/types/models";
-import { ArrowLeft, MessageSquare, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  CircleDot,
+  Clock3,
+  FileText,
+  LifeBuoy,
+  MessageSquare,
+  Plus,
+  Search,
+  TicketIcon,
+  UserRound,
+} from "lucide-react";
 
 const ticketStatuses: TicketStatus[] = [
   "OPEN",
@@ -82,6 +93,26 @@ const formatActivityAction = (action: string) =>
     .replaceAll("_", " ")
     .toLowerCase()
     .replace(/^\w/, (char) => char.toUpperCase());
+
+const initials = (value: string) =>
+  value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "OC";
+
+const fieldControlClass =
+  "mt-2 h-11 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
+
+function activityIconClass(action: string) {
+  if (action.includes("NOTE")) return "bg-violet-500/20 text-violet-200";
+  if (action.includes("ASSIGN")) return "bg-sky-500/20 text-sky-200";
+  if (action.includes("STATUS") || action.includes("RESOLVED")) {
+    return "bg-emerald-500/20 text-emerald-200";
+  }
+  return "bg-oc-panel text-oc-muted";
+}
 
 export default function TicketsPage() {
   const token = useAuthStore((s) => s.accessToken);
@@ -249,76 +280,107 @@ export default function TicketsPage() {
     <div className="flex h-full min-h-0 overflow-hidden bg-oc-bg">
       <section
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto p-4 md:p-5 xl:p-6",
+          "min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 xl:px-8 xl:py-7",
           selectedId && "hidden lg:block",
         )}
       >
-        <header className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <header className="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
+            <p className="text-xs font-semibold uppercase text-oc-faint">
               Support operations
             </p>
-            <h1 className="mt-1 text-2xl font-semibold text-oc-text">
-              Tickets
+            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-oc-text">
+              Support Tickets
             </h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-oc-muted">
-              Track customer issues with priority, ownership, notes, and
-              lifecycle state.
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-oc-muted">
+              Manage customer issues, ownership, notes and lifecycle.
             </p>
           </div>
           <Button
             type="button"
             disabled={!canMutate}
             onClick={() => setCreating((current) => !current)}
-            className="w-full sm:w-auto"
+            className="h-11 w-full gap-2 px-5 sm:w-auto"
           >
+            <Plus className="h-4 w-4" />
             {creating ? "Close form" : "New ticket"}
           </Button>
         </header>
 
-        <Card className="mb-4 p-4">
-          <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_180px] xl:grid-cols-[minmax(260px,1fr)_190px_190px]">
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search tickets..."
-              className="h-10"
-              aria-label="Search tickets"
-            />
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as TicketStatus | "")}
-              className="h-10 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
-              aria-label="Filter by status"
-            >
-              <option value="">All statuses</option>
-              {ticketStatuses.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <select
-              value={priority}
-              onChange={(e) =>
-                setPriority(e.target.value as TicketPriority | "")
-              }
-              className="h-10 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
-              aria-label="Filter by priority"
-            >
-              <option value="">All priorities</option>
-              {ticketPriorities.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+        <Card className="mb-5 p-4 md:p-5">
+          <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
+            <div className="grid flex-1 gap-3 md:grid-cols-[minmax(260px,1fr)_180px_180px]">
+              <label className="block text-xs font-semibold uppercase text-oc-faint">
+                Search
+                <span className="relative mt-2 block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-oc-faint" />
+                  <Input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Search tickets, customers, or IDs..."
+                    className="h-11 pl-10"
+                    aria-label="Search tickets"
+                  />
+                </span>
+              </label>
+              <label className="block text-xs font-semibold uppercase text-oc-faint">
+                Status
+                <select
+                  value={status}
+                  onChange={(e) =>
+                    setStatus(e.target.value as TicketStatus | "")
+                  }
+                  className={fieldControlClass}
+                  aria-label="Filter by status"
+                >
+                  <option value="">All statuses</option>
+                  {ticketStatuses.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs font-semibold uppercase text-oc-faint">
+                Priority
+                <select
+                  value={priority}
+                  onChange={(e) =>
+                    setPriority(e.target.value as TicketPriority | "")
+                  }
+                  className={fieldControlClass}
+                  aria-label="Filter by priority"
+                >
+                  <option value="">All priorities</option>
+                  {ticketPriorities.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="rounded-lg border border-oc-border/70 bg-oc-bg/50 px-3 py-2 text-sm text-oc-muted">
+              Showing{" "}
+              <span className="font-semibold text-oc-text">
+                {isLoading ? "..." : tickets.length}
+              </span>{" "}
+              tickets
+            </div>
           </div>
         </Card>
 
         {creating && (
-          <Card className="mb-4 p-4 md:p-5">
-            <form onSubmit={submitCreate} className="grid gap-4 lg:grid-cols-2">
+          <Card className="mb-5 p-5 md:p-6">
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-oc-text">
+                Create ticket
+              </h2>
+              <p className="mt-1 text-sm text-oc-muted">
+                Capture a support issue and assign ownership for follow-up.
+              </p>
+            </div>
+            <form onSubmit={submitCreate} className="grid gap-5 lg:grid-cols-2">
               <div className="lg:col-span-2">
                 <label className="text-sm font-medium text-oc-text">
                   Subject
@@ -349,7 +411,7 @@ export default function TicketsPage() {
                   onChange={(e) =>
                     setCreatePriority(e.target.value as TicketPriority)
                   }
-                  className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+                  className={fieldControlClass}
                 >
                   {ticketPriorities.map((p) => (
                     <option key={p} value={p}>
@@ -363,7 +425,7 @@ export default function TicketsPage() {
                 <select
                   value={assigneeId}
                   onChange={(e) => setAssigneeId(e.target.value)}
-                  className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+                  className={fieldControlClass}
                 >
                   <option value="">Unassigned</option>
                   {users.map((u) => (
@@ -392,10 +454,11 @@ export default function TicketsPage() {
                   placeholder="Optional"
                 />
               </label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:col-span-2">
+              <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center lg:col-span-2">
                 <Button
                   type="submit"
                   disabled={createMut.isPending || !subject.trim()}
+                  className="h-11"
                 >
                   {createMut.isPending ? "Creating..." : "Create ticket"}
                 </Button>
@@ -403,6 +466,7 @@ export default function TicketsPage() {
                   type="button"
                   variant="secondary"
                   onClick={() => setCreating(false)}
+                  className="h-11"
                 >
                   Cancel
                 </Button>
@@ -411,17 +475,17 @@ export default function TicketsPage() {
           </Card>
         )}
 
-        <Card className="overflow-hidden p-0">
+        <Card className="overflow-hidden p-0 shadow-sm">
           <div className="hidden lg:block">
             <table className="w-full table-fixed text-left text-sm">
-              <thead className="border-b border-oc-border bg-oc-bg/60 text-xs uppercase tracking-wide text-oc-faint">
+              <thead className="border-b border-oc-border bg-oc-bg/70 text-xs uppercase text-oc-faint">
                 <tr>
-                  <th className="w-[34%] px-4 py-3 font-medium">Subject</th>
-                  <th className="w-[13%] px-4 py-3 font-medium">Status</th>
-                  <th className="w-[13%] px-4 py-3 font-medium">Priority</th>
-                  <th className="w-[16%] px-4 py-3 font-medium">Customer</th>
-                  <th className="w-[14%] px-4 py-3 font-medium">Assignee</th>
-                  <th className="w-[10%] px-4 py-3 font-medium">Updated</th>
+                  <th className="w-[28%] px-5 py-4 font-semibold">Subject</th>
+                  <th className="w-[16%] px-3 py-4 font-semibold">Status</th>
+                  <th className="w-[14%] px-3 py-4 font-semibold">Priority</th>
+                  <th className="w-[14%] px-4 py-4 font-semibold">Customer</th>
+                  <th className="w-[14%] px-4 py-4 font-semibold">Assignee</th>
+                  <th className="w-[14%] px-4 py-4 font-semibold">Updated</th>
                 </tr>
               </thead>
               <tbody>
@@ -444,8 +508,17 @@ export default function TicketsPage() {
                 )}
                 {!isLoading && !error && tickets.length === 0 && (
                   <tr>
-                    <td className="px-4 py-10" colSpan={6}>
-                      <EmptyTicketsState filtered={Boolean(q || status || priority)} />
+                    <td className="px-5 py-16" colSpan={6}>
+                      <EmptyTicketsState
+                        filtered={Boolean(q || status || priority)}
+                        canCreate={canMutate}
+                        onCreate={() => setCreating(true)}
+                        onClear={() => {
+                          setQ("");
+                          setStatus("");
+                          setPriority("");
+                        }}
+                      />
                     </td>
                   </tr>
                 )}
@@ -461,7 +534,7 @@ export default function TicketsPage() {
             </table>
           </div>
 
-          <div className="space-y-3 p-3 lg:hidden">
+          <div className="space-y-3 p-4 lg:hidden">
             {isLoading &&
               Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-32 w-full rounded-lg" />
@@ -472,7 +545,16 @@ export default function TicketsPage() {
               </div>
             )}
             {!isLoading && !error && tickets.length === 0 && (
-              <EmptyTicketsState filtered={Boolean(q || status || priority)} />
+              <EmptyTicketsState
+                filtered={Boolean(q || status || priority)}
+                canCreate={canMutate}
+                onCreate={() => setCreating(true)}
+                onClear={() => {
+                  setQ("");
+                  setStatus("");
+                  setPriority("");
+                }}
+              />
             )}
             {tickets.map((t: Ticket) => (
               <TicketCard
@@ -527,39 +609,66 @@ function TicketRow({
       role="button"
       tabIndex={0}
       className={cn(
-        "cursor-pointer border-b border-oc-border/40 transition-colors hover:bg-oc-panel/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-oc-accent",
-        active && "bg-oc-panel/70",
+        "cursor-pointer border-b border-oc-border/45 transition-colors hover:bg-oc-panel/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-oc-accent",
+        active &&
+          "bg-oc-panel/75 shadow-[inset_3px_0_0_rgba(196,181,253,0.9)]",
       )}
     >
-      <td className="px-4 py-4">
+      <td className="px-3 py-5">
         <div className="min-w-0">
-          <p className="truncate font-semibold text-oc-text">
+          <p className="truncate text-base font-semibold leading-6 text-oc-text">
             {ticket.subject}
           </p>
-          <p className="mt-1 truncate text-xs text-oc-faint">
+          <p className="mt-1 truncate text-sm text-oc-muted">
             {ticket.conversation?.channel
               ? `${ticket.conversation.channel} conversation`
               : "Manual ticket"}
           </p>
         </div>
       </td>
-      <td className="px-4 py-4">
-        <Badge tone={statusTone(ticket.status)} className="normal-case">
+      <td className="px-3 py-5">
+        <Badge
+          tone={statusTone(ticket.status)}
+          className="gap-1.5 px-2.5 py-1 normal-case"
+        >
+          <CircleDot className="h-3 w-3" />
           {ticket.status}
         </Badge>
       </td>
-      <td className="px-4 py-4">
-        <Badge tone={priorityTone(ticket.priority)} className="normal-case">
+      <td className="px-4 py-5">
+        <Badge
+          tone={priorityTone(ticket.priority)}
+          className="px-2.5 py-1 normal-case"
+        >
           {ticket.priority}
         </Badge>
       </td>
-      <td className="truncate px-4 py-4 text-oc-muted">
-        {displayCustomer(ticket)}
+      <td className="px-4 py-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-oc-border bg-oc-panel text-xs font-semibold text-oc-text">
+            {initials(displayCustomer(ticket))}
+          </span>
+          <span className="truncate text-sm font-medium text-oc-text">
+            {displayCustomer(ticket)}
+          </span>
+        </div>
       </td>
-      <td className="truncate px-4 py-4 text-oc-muted">
-        {displayUser(ticket.assignee)}
+      <td className="px-5 py-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-oc-border bg-oc-bg text-xs font-semibold text-oc-muted">
+            {ticket.assignee ? initials(displayUser(ticket.assignee)) : "—"}
+          </span>
+          <span
+            className={cn(
+              "truncate text-sm",
+              ticket.assignee ? "font-medium text-oc-text" : "italic text-oc-faint",
+            )}
+          >
+            {displayUser(ticket.assignee)}
+          </span>
+        </div>
       </td>
-      <td className="px-4 py-4 text-xs text-oc-faint">
+      <td className="px-4 py-5 text-sm text-oc-muted">
         {ticket.updatedAt ? formatRelative(ticket.updatedAt) : "—"}
       </td>
     </tr>
@@ -581,24 +690,32 @@ function TicketCard({
       onClick={onSelect}
       className={cn(
         "w-full rounded-xl border border-oc-border bg-oc-bg-mid/80 p-4 text-left transition-colors hover:bg-oc-panel/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
-        active && "bg-oc-panel ring-1 ring-violet-500/35",
+        active &&
+          "bg-oc-panel shadow-[inset_3px_0_0_rgba(196,181,253,0.9)] ring-1 ring-violet-500/35",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="line-clamp-2 text-sm font-semibold text-oc-text">
+          <p className="line-clamp-2 text-base font-semibold leading-6 text-oc-text">
             {ticket.subject}
           </p>
           <p className="mt-1 text-xs text-oc-faint">
             Updated {ticket.updatedAt ? formatRelative(ticket.updatedAt) : "—"}
           </p>
         </div>
-        <Badge tone={priorityTone(ticket.priority)} className="normal-case">
+        <Badge
+          tone={priorityTone(ticket.priority)}
+          className="px-2.5 py-1 normal-case"
+        >
           {ticket.priority}
         </Badge>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Badge tone={statusTone(ticket.status)} className="normal-case">
+        <Badge
+          tone={statusTone(ticket.status)}
+          className="gap-1.5 px-2.5 py-1 normal-case"
+        >
+          <CircleDot className="h-3 w-3" />
           {ticket.status}
         </Badge>
         {ticket.conversation?.channel && (
@@ -621,17 +738,61 @@ function TicketCard({
   );
 }
 
-function EmptyTicketsState({ filtered }: { filtered: boolean }) {
+function EmptyTicketsState({
+  filtered,
+  canCreate,
+  onCreate,
+  onClear,
+}: {
+  filtered: boolean;
+  canCreate: boolean;
+  onCreate: () => void;
+  onClear: () => void;
+}) {
   return (
-    <div className="rounded-lg border border-dashed border-oc-border bg-oc-panel/30 p-8 text-center">
-      <p className="text-sm font-semibold text-oc-text">
-        {filtered ? "No matching tickets" : "No tickets yet"}
+    <div className="mx-auto flex max-w-2xl flex-col items-center rounded-xl border border-dashed border-oc-border bg-oc-bg/50 px-6 py-12 text-center">
+      <div className="relative mb-5">
+        <span className="flex h-20 w-20 items-center justify-center rounded-2xl border border-oc-border bg-oc-panel text-oc-accent shadow-sm">
+          <TicketIcon className="h-9 w-9" />
+        </span>
+        <span className="absolute -right-3 -top-3 flex h-10 w-10 items-center justify-center rounded-xl border border-oc-border bg-oc-bg-mid text-oc-muted">
+          <LifeBuoy className="h-5 w-5" />
+        </span>
+      </div>
+      <p className="text-xl font-semibold text-oc-text">
+        {filtered ? "No matching tickets" : "No tickets found"}
       </p>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-oc-muted">
+      <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-oc-muted">
         {filtered
           ? "Try adjusting the search, status, or priority filters."
-          : "Tickets created manually or from customer conversations will appear here."}
+          : "Your support queue is currently empty. Create a ticket manually or from an active conversation to begin tracking customer issues."}
       </p>
+      <div className="mt-6 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
+        <Button
+          type="button"
+          onClick={filtered ? onClear : onCreate}
+          disabled={!filtered && !canCreate}
+          className="h-11 gap-2 px-5"
+        >
+          {filtered ? (
+            "Clear filters"
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              Create ticket
+            </>
+          )}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={filtered ? onCreate : undefined}
+          disabled={filtered ? !canCreate : true}
+          className="h-11 px-5"
+        >
+          {filtered ? "Create ticket" : "Tickets will appear here"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -674,12 +835,12 @@ function TicketDetailPanel({
   return (
     <aside
       className={cn(
-        "min-h-0 w-full shrink-0 border-l border-oc-border bg-oc-bg-mid/60 lg:w-[390px] xl:w-[430px]",
+        "min-h-0 w-full shrink-0 border-l border-oc-border bg-oc-bg-mid/70 lg:w-[390px] xl:w-[430px]",
         !selectedId && "hidden lg:block",
       )}
     >
       <div className="flex h-full min-h-0 flex-col">
-        <div className="flex min-h-14 items-center gap-3 border-b border-oc-border px-4">
+        <div className="flex min-h-16 items-center gap-3 border-b border-oc-border bg-oc-panel/35 px-5">
           <Button
             type="button"
             variant="ghost"
@@ -691,19 +852,20 @@ function TicketDetailPanel({
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-oc-text">
-              Ticket detail
+            <p className="truncate text-base font-semibold text-oc-text">
+              Ticket workspace
             </p>
-            <p className="text-xs text-oc-faint">
+            <p className="text-sm text-oc-muted">
               Status, ownership, notes, and activity
             </p>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
           {!selectedId && (
-            <div className="rounded-lg border border-dashed border-oc-border bg-oc-panel/30 p-6 text-center">
-              <p className="text-sm font-semibold text-oc-text">
+            <div className="rounded-xl border border-dashed border-oc-border bg-oc-panel/30 p-8 text-center">
+              <FileText className="mx-auto h-8 w-8 text-oc-faint" />
+              <p className="mt-3 text-sm font-semibold text-oc-text">
                 Select a ticket
               </p>
               <p className="mt-2 text-sm leading-6 text-oc-muted">
@@ -714,29 +876,33 @@ function TicketDetailPanel({
           )}
 
           {selectedId && loading && (
-            <div className="space-y-3">
-              <Skeleton className="h-28 w-full rounded-lg" />
-              <Skeleton className="h-40 w-full rounded-lg" />
-              <Skeleton className="h-40 w-full rounded-lg" />
+            <div className="space-y-4">
+              <Skeleton className="h-36 w-full rounded-lg" />
+              <Skeleton className="h-48 w-full rounded-lg" />
+              <Skeleton className="h-44 w-full rounded-lg" />
             </div>
           )}
 
           {ticket && (
-            <div className="space-y-4">
-              <Card className="space-y-3 p-4">
-                <div className="flex flex-wrap gap-2">
-                  <Badge tone={statusTone(ticket.status)} className="normal-case">
+            <div className="space-y-5">
+              <Card className="space-y-4 p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    tone={statusTone(ticket.status)}
+                    className="gap-1.5 px-2.5 py-1 normal-case"
+                  >
+                    <CircleDot className="h-3 w-3" />
                     {ticket.status}
                   </Badge>
                   <Badge
                     tone={priorityTone(ticket.priority)}
-                    className="normal-case"
+                    className="px-2.5 py-1 normal-case"
                   >
                     {ticket.priority}
                   </Badge>
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold leading-6 text-oc-text">
+                  <h2 className="text-xl font-semibold leading-7 text-oc-text">
                     {ticket.subject}
                   </h2>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-oc-muted">
@@ -745,97 +911,99 @@ function TicketDetailPanel({
                 </div>
               </Card>
 
-              <Card className="space-y-3 p-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-oc-faint">
+              <Card className="space-y-4 p-5">
+                <h3 className="text-xs font-semibold uppercase text-oc-faint">
                   Controls
                 </h3>
-                <label className="block text-sm font-medium text-oc-text">
-                  Status
-                  <select
-                    value={ticket.status}
-                    disabled={!canMutate || updating}
-                    onChange={(event) =>
-                      updateMutate({
-                        status: event.target.value as TicketStatus,
-                      })
-                    }
-                    className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
-                  >
-                    {ticketStatuses.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="grid gap-4">
+                  <label className="block text-sm font-medium text-oc-text">
+                    Status
+                    <select
+                      value={ticket.status}
+                      disabled={!canMutate || updating}
+                      onChange={(event) =>
+                        updateMutate({
+                          status: event.target.value as TicketStatus,
+                        })
+                      }
+                      className={fieldControlClass}
+                    >
+                      {ticketStatuses.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <label className="block text-sm font-medium text-oc-text">
-                  Priority
-                  <select
-                    value={ticket.priority}
-                    disabled={!canMutate || updating}
-                    onChange={(event) =>
-                      updateMutate({
-                        priority: event.target.value as TicketPriority,
-                      })
-                    }
-                    className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
-                  >
-                    {ticketPriorities.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <label className="block text-sm font-medium text-oc-text">
+                    Priority
+                    <select
+                      value={ticket.priority}
+                      disabled={!canMutate || updating}
+                      onChange={(event) =>
+                        updateMutate({
+                          priority: event.target.value as TicketPriority,
+                        })
+                      }
+                      className={fieldControlClass}
+                    >
+                      {ticketPriorities.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <label className="block text-sm font-medium text-oc-text">
-                  Assignee
-                  <select
-                    value={ticket.assigneeId ?? ""}
-                    disabled={!canMutate || updating}
-                    onChange={(event) =>
-                      updateMutate({
-                        assigneeId: event.target.value || null,
-                      })
-                    }
-                    className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
-                  >
-                    <option value="">Unassigned</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {[u.firstName, u.lastName].filter(Boolean).join(" ") ||
-                          u.email}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <label className="block text-sm font-medium text-oc-text">
+                    Assignee
+                    <select
+                      value={ticket.assigneeId ?? ""}
+                      disabled={!canMutate || updating}
+                      onChange={(event) =>
+                        updateMutate({
+                          assigneeId: event.target.value || null,
+                        })
+                      }
+                      className={fieldControlClass}
+                    >
+                      <option value="">Unassigned</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {[u.firstName, u.lastName].filter(Boolean).join(" ") ||
+                            u.email}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               </Card>
 
-              <Card className="space-y-3 p-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-oc-faint">
+              <Card className="space-y-4 p-5">
+                <h3 className="text-xs font-semibold uppercase text-oc-faint">
                   Context
                 </h3>
-                <dl className="space-y-3 text-sm">
-                  <div className="flex justify-between gap-3">
+                <dl className="divide-y divide-oc-border/50 rounded-lg border border-oc-border/60 bg-oc-bg/40 text-sm">
+                  <div className="flex justify-between gap-3 px-3 py-3">
                     <dt className="text-oc-muted">Customer</dt>
                     <dd className="min-w-0 truncate text-oc-text">
                       {displayCustomer(ticket)}
                     </dd>
                   </div>
-                  <div className="flex justify-between gap-3">
+                  <div className="flex justify-between gap-3 px-3 py-3">
                     <dt className="text-oc-muted">Assignee</dt>
                     <dd className="min-w-0 truncate text-oc-text">
                       {displayUser(ticket.assignee)}
                     </dd>
                   </div>
-                  <div className="flex justify-between gap-3">
+                  <div className="flex justify-between gap-3 px-3 py-3">
                     <dt className="text-oc-muted">Created by</dt>
                     <dd className="min-w-0 truncate text-oc-text">
                       {displayUser(ticket.createdBy)}
                     </dd>
                   </div>
-                  <div className="flex justify-between gap-3">
+                  <div className="flex justify-between gap-3 px-3 py-3">
                     <dt className="text-oc-muted">Conversation</dt>
                     <dd className="flex min-w-0 items-center gap-1 truncate text-oc-text">
                       {ticket.conversation ? (
@@ -851,7 +1019,7 @@ function TicketDetailPanel({
                       )}
                     </dd>
                   </div>
-                  <div className="flex justify-between gap-3">
+                  <div className="flex justify-between gap-3 px-3 py-3">
                     <dt className="text-oc-muted">Updated</dt>
                     <dd className="text-oc-text">
                       {ticket.updatedAt ? formatRelative(ticket.updatedAt) : "—"}
@@ -860,9 +1028,9 @@ function TicketDetailPanel({
                 </dl>
               </Card>
 
-              <Card className="space-y-4 p-4">
+              <Card className="space-y-5 p-5">
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-oc-faint">
+                  <h3 className="text-xs font-semibold uppercase text-oc-faint">
                     Internal notes
                   </h3>
                   <p className="mt-1 text-sm text-oc-muted">
@@ -870,21 +1038,25 @@ function TicketDetailPanel({
                   </p>
                 </div>
                 {canMutate && (
-                  <div className="space-y-2">
+                  <div className="rounded-lg border border-oc-border bg-oc-bg/45 p-3">
                     <Textarea
                       value={noteDraft}
                       onChange={(event) => setNoteDraft(event.target.value)}
                       placeholder="Add an internal note..."
-                      className="min-h-24 resize-none"
+                      className="min-h-32 resize-none border-0 bg-transparent p-0 shadow-none focus-visible:outline-none"
                     />
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={addingNote || !noteDraft.trim()}
-                      onClick={noteMutate}
-                    >
-                      {addingNote ? "Adding..." : "Add note"}
-                    </Button>
+                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-oc-border/60 pt-3">
+                      <span className="text-xs text-oc-faint">Team only</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={addingNote || !noteDraft.trim()}
+                        onClick={noteMutate}
+                        className="h-9"
+                      >
+                        {addingNote ? "Adding..." : "Add note"}
+                      </Button>
+                    </div>
                   </div>
                 )}
                 <div className="space-y-3">
@@ -896,14 +1068,28 @@ function TicketDetailPanel({
                     notes.map((note) => (
                       <div
                         key={note.id}
-                        className="rounded-lg border border-oc-border bg-oc-panel/60 p-3"
+                        className="rounded-lg border border-oc-border bg-oc-panel/60 p-4"
                       >
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-oc-border bg-oc-bg text-xs font-semibold text-oc-text">
+                              {initials(displayUser(note.author))}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-oc-text">
+                                {displayUser(note.author)}
+                              </p>
+                              <p className="text-xs text-oc-faint">
+                                {formatRelative(note.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="rounded-md bg-oc-bg px-2 py-1 text-xs text-oc-faint">
+                            Internal
+                          </span>
+                        </div>
                         <p className="whitespace-pre-wrap text-sm leading-6 text-oc-text">
                           {note.content}
-                        </p>
-                        <p className="mt-2 text-xs text-oc-faint">
-                          {displayUser(note.author)} ·{" "}
-                          {formatRelative(note.createdAt)}
                         </p>
                       </div>
                     ))
@@ -911,8 +1097,8 @@ function TicketDetailPanel({
                 </div>
               </Card>
 
-              <Card className="space-y-4 p-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-oc-faint">
+              <Card className="space-y-4 p-5">
+                <h3 className="text-xs font-semibold uppercase text-oc-faint">
                   Activity history
                 </h3>
                 {!activity?.length ? (
@@ -920,19 +1106,30 @@ function TicketDetailPanel({
                     No activity yet.
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="relative space-y-0 pl-3">
+                    <span className="absolute bottom-4 left-[25px] top-4 w-px bg-oc-border/70" />
                     {activity.map((item) => (
                       <div
                         key={item.id}
-                        className="rounded-lg bg-oc-bg/70 px-3 py-3 text-sm text-oc-muted"
+                        className="relative flex gap-3 pb-5 last:pb-0"
                       >
-                        <p className="font-medium text-oc-text">
-                          {formatActivityAction(item.action)}
-                        </p>
-                        <p className="mt-1 text-xs text-oc-faint">
-                          {displayUser(item.actor)} ·{" "}
-                          {formatRelative(item.createdAt)}
-                        </p>
+                        <span
+                          className={cn(
+                            "relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-oc-border",
+                            activityIconClass(item.action),
+                          )}
+                        >
+                          <Clock3 className="h-3.5 w-3.5" />
+                        </span>
+                        <div className="min-w-0 flex-1 rounded-lg border border-oc-border/60 bg-oc-bg/55 px-3 py-3 text-sm text-oc-muted">
+                          <p className="font-medium text-oc-text">
+                            {formatActivityAction(item.action)}
+                          </p>
+                          <p className="mt-1 text-xs text-oc-faint">
+                            {displayUser(item.actor)} ·{" "}
+                            {formatRelative(item.createdAt)}
+                          </p>
+                        </div>
                       </div>
                     ))}
                   </div>

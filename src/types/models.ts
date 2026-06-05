@@ -90,6 +90,9 @@ export interface Conversation {
   lastMessageAt?: string | null;
   lastMessage?: Message | null;
   latestMessage?: Message | null;
+  latestCustomerMessage?: Message | null;
+  latestAgentReply?: Message | null;
+  recentMessages?: Message[];
   messages?: Message[];
   unreadCount?: number;
 
@@ -175,10 +178,18 @@ export interface Ticket {
   conversationId?: string | null;
   conversation?: Pick<
     Conversation,
-    "id" | "customerId" | "channel" | "createdAt" | "updatedAt"
+    | "id"
+    | "customerId"
+    | "channel"
+    | "latestCustomerMessage"
+    | "latestAgentReply"
+    | "recentMessages"
+    | "createdAt"
+    | "updatedAt"
   > | null;
   notes?: TicketNote[];
   activities?: TicketActivity[];
+  metrics?: TicketMetrics;
 
   slaDueAt?: string | null;
 
@@ -188,12 +199,23 @@ export interface Ticket {
 
 export type TicketActivityAction =
   | "TICKET_CREATED"
+  | "TICKET_CREATED_FROM_WIDGET"
   | "TICKET_UPDATED"
   | "STATUS_CHANGED"
   | "PRIORITY_CHANGED"
   | "ASSIGNED"
   | "UNASSIGNED"
-  | "NOTE_ADDED";
+  | "NOTE_ADDED"
+  | "MESSAGE_RECEIVED_ON_WIDGET";
+
+export interface TicketMetrics {
+  createdAt: string;
+  updatedAt: string;
+  firstResponseAt?: string | null;
+  firstResponseTimeMinutes?: number | null;
+  resolvedAt?: string | null;
+  timeOpenMinutes?: number | null;
+}
 
 export interface TicketNote {
   id: string;

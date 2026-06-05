@@ -32,12 +32,13 @@ export async function listTickets(
   const qs = q.toString();
   const raw = await apiFetch<unknown>(`/tickets${qs ? `?${qs}` : ""}`, {
     token,
+    cache: "no-store",
   });
   return normalizePaginated<Ticket>(raw);
 }
 
 export async function getTicket(token: string, id: string): Promise<Ticket> {
-  return apiFetch<Ticket>(`/tickets/${id}`, { token });
+  return apiFetch<Ticket>(`/tickets/${id}`, { token, cache: "no-store" });
 }
 
 export interface CreateTicketInput {
@@ -98,6 +99,7 @@ export async function listTicketNotes(
 ): Promise<TicketNote[]> {
   return apiFetch<TicketNote[]>(`/tickets/${ticketId}/notes`, {
     token,
+    cache: "no-store",
   });
 }
 
@@ -121,5 +123,6 @@ export async function listTicketActivity(
 ): Promise<TicketActivity[]> {
   return apiFetch<TicketActivity[]>(`/tickets/${ticketId}/activity`, {
     token,
+    cache: "no-store",
   });
 }

@@ -31,6 +31,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { TagEditor, TagPills } from "@/features/tags/tag-editor";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 import type {
@@ -896,6 +897,7 @@ function TicketCard({
             {ticket.conversation.channel}
           </Badge>
         )}
+        <TagPills tags={ticket.tags} />
       </div>
       <div className="mt-4 grid gap-2 text-sm text-oc-muted">
         <span className="flex min-w-0 items-center gap-2">
@@ -1155,6 +1157,7 @@ function TicketDetailPanel({
                   >
                     {ticket.priority}
                   </Badge>
+                  <TagPills tags={ticket.tags} />
                 </div>
                 <div>
                   <h2 className="text-xl font-semibold leading-7 text-oc-text">
@@ -1164,6 +1167,24 @@ function TicketDetailPanel({
                     {ticket.description || "No description provided."}
                   </p>
                 </div>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase text-oc-faint">
+                    Tags
+                  </h3>
+                  <p className="mt-1 text-sm text-oc-muted">
+                    Classify this ticket without changing its workflow state.
+                  </p>
+                </div>
+                <TagEditor
+                  targetType="tickets"
+                  targetId={ticket.id}
+                  selectedTags={ticket.tags}
+                  canMutate={canMutate}
+                  invalidateKeys={[queryKeys.ticket(ticket.id), ["tickets"]]}
+                />
               </Card>
 
               <Card className="space-y-4 p-5">

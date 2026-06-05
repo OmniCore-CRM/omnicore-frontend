@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { TagPills } from "@/features/tags/tag-editor";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
 import type { Message, SavedReply } from "@/types/models";
@@ -337,6 +338,9 @@ export function MessageThreadPanel({
               <Badge tone={conversation.channel === "WHATSAPP" ? "success" : "neutral"} className="normal-case">
                 {conversation.channel}
               </Badge>
+            )}
+            {Boolean(conversation?.tags?.length) && (
+              <TagPills tags={conversation?.tags} />
             )}
             <span className="inline-flex items-center gap-1 text-xs text-oc-faint">
               {socketState === "live" ? (

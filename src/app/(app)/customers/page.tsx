@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TagEditor, TagPills } from "@/features/tags/tag-editor";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 import type {
@@ -344,6 +345,23 @@ function CustomerDetailWorkspace({ customer }: { customer: Customer }) {
         />
       </div>
 
+      <Card className="space-y-4 p-5">
+        <div>
+          <h3 className="text-xs font-semibold uppercase text-oc-faint">
+            Tags
+          </h3>
+          <p className="mt-1 text-sm text-oc-muted">
+            Classify this customer for internal support workflows.
+          </p>
+        </div>
+        <TagEditor
+          targetType="customers"
+          targetId={customer.id}
+          selectedTags={customer.tags}
+          invalidateKeys={[queryKeys.customer(customer.id), ["customers"]]}
+        />
+      </Card>
+
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div className="space-y-5">
           <CustomerConversations conversations={customer.conversations ?? []} />
@@ -389,6 +407,9 @@ function CustomerConversations({
                   <span className="text-xs text-oc-faint">
                     Updated {conversation.updatedAt ? formatRelative(conversation.updatedAt) : "—"}
                   </span>
+                  {Boolean(conversation.tags?.length) && (
+                    <TagPills tags={conversation.tags} />
+                  )}
                 </div>
                 <p className="mt-2 line-clamp-2 text-sm leading-6 text-oc-text">
                   {conversation.lastMessagePreview || "No messages yet"}
@@ -429,6 +450,9 @@ function CustomerTickets({ tickets }: { tickets: CustomerTicketSummary[] }) {
                   <Badge tone={priorityTone(ticket.priority)} className="normal-case">
                     {ticket.priority}
                   </Badge>
+                  {Boolean(ticket.tags?.length) && (
+                    <TagPills tags={ticket.tags} />
+                  )}
                 </div>
                 <p className="mt-2 truncate text-sm font-semibold text-oc-text">
                   {ticket.subject}

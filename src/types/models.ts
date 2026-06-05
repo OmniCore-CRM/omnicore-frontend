@@ -88,6 +88,9 @@ export interface Conversation {
   subject?: string | null;
   lastMessagePreview?: string | null;
   lastMessageAt?: string | null;
+  lastMessage?: Message | null;
+  latestMessage?: Message | null;
+  messages?: Message[];
   unreadCount?: number;
 
   assigneeId?: string | null;

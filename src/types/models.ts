@@ -64,6 +64,68 @@ export interface Customer {
 
   createdAt?: string;
   updatedAt?: string;
+
+  channelsUsed?: ConversationChannel[];
+  lastActivityAt?: string | null;
+  metrics?: CustomerMetrics;
+  conversations?: CustomerConversationSummary[];
+  tickets?: CustomerTicketSummary[];
+  timeline?: CustomerTimelineItem[];
+}
+
+export interface CustomerMetrics {
+  totalConversations: number;
+  totalTickets: number;
+  openTickets: number;
+  closedTickets: number;
+  lastInteractionAt?: string | null;
+}
+
+export interface CustomerConversationSummary {
+  id: string;
+  customerId: string;
+  channel: ConversationChannel;
+  status?: ConversationStatus | string;
+  lastMessage?: Message | null;
+  lastMessagePreview?: string | null;
+  lastMessageAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomerTicketSummary {
+  id: string;
+  subject: string;
+  description?: string | null;
+  status: TicketStatus;
+  priority: TicketPriority;
+  assigneeId?: string | null;
+  assignee?: AuthUser | null;
+  conversationId?: string | null;
+  customerId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type CustomerTimelineItemType =
+  | "CONVERSATION_CREATED"
+  | "CUSTOMER_MESSAGE"
+  | "AGENT_REPLY"
+  | "TICKET_CREATED"
+  | "TICKET_STATUS_CHANGED"
+  | "TICKET_NOTE_ADDED"
+  | "TICKET_RESOLVED";
+
+export interface CustomerTimelineItem {
+  id: string;
+  type: CustomerTimelineItemType;
+  title: string;
+  description?: string | null;
+  timestamp: string;
+  channel?: ConversationChannel | string | null;
+  conversationId?: string | null;
+  ticketId?: string | null;
+  actor?: AuthUser | null;
 }
 
 // Inbox conversation states.

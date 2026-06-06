@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/components/providers/socket-provider";
 import { SOCKET_EVENTS } from "@/constants/socket-events";
 import { queryKeys } from "@/constants/query-keys";
-import type { Message } from "@/types/models";
+import type { Conversation, Message } from "@/types/models";
 
 type MessagePage = {
   items: Message[];
@@ -21,6 +21,18 @@ function extractMessage(payload: unknown): Message | null {
   }
   if (o.message && typeof o.message === "object") {
     return o.message as Message;
+  }
+  return null;
+}
+
+function extractConversation(payload: unknown): Conversation | null {
+  if (!payload || typeof payload !== "object") return null;
+  const value = payload as Record<string, unknown>;
+  if ("id" in value && "customerId" in value && "channel" in value) {
+    return value as unknown as Conversation;
+  }
+  if (value.conversation && typeof value.conversation === "object") {
+    return value.conversation as Conversation;
   }
   return null;
 }
@@ -95,14 +107,35 @@ export function useInboxRealtime(companyId: string | null) {
       if (!m?.conversationId) return;
       upsertMessage(m);
     };
+    const onConversationUpdated = (payload: unknown) => {
+      const conversation = extractConversation(payload);
+      if (conversation) {
+        qc.setQueryData(queryKeys.conversation(conversation.id), conversation);
+        qc.setQueriesData(
+          { queryKey: ["conversations"] },
+          (old: { items: Conversation[] } | undefined) => {
+            if (!old) return old;
+            return {
+              ...old,
+              items: old.items.map((item) =>
+                item.id === conversation.id
+                  ? { ...item, ...conversation }
+                  : item,
+              ),
+            };
+          },
+        );
+      }
+      bumpLists();
+    };
     socket.on(SOCKET_EVENTS.NEW_MESSAGE, onMessage);
     socket.on(SOCKET_EVENTS.MESSAGE_STATUS_UPDATED, onStatusUpdated);
-    socket.on(SOCKET_EVENTS.CONVERSATION_UPDATED, bumpLists);
+    socket.on(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
     socket.on(SOCKET_EVENTS.INBOX_REFRESH, bumpLists);
     return () => {
       socket.off(SOCKET_EVENTS.NEW_MESSAGE, onMessage);
       socket.off(SOCKET_EVENTS.MESSAGE_STATUS_UPDATED, onStatusUpdated);
-      socket.off(SOCKET_EVENTS.CONVERSATION_UPDATED, bumpLists);
+      socket.off(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
       socket.off(SOCKET_EVENTS.INBOX_REFRESH, bumpLists);
     };
   }, [socket, qc]);

@@ -53,7 +53,7 @@ export interface Customer {
   phone?: string | null;
 
   avatarUrl?: string | null;
-  tags?: string[];
+  tags?: Tag[];
 
   // Future-ready identity resolution structure.
   identities?: {
@@ -91,6 +91,7 @@ export interface CustomerConversationSummary {
   lastMessageAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  tags?: Tag[];
 }
 
 export interface CustomerTicketSummary {
@@ -105,6 +106,7 @@ export interface CustomerTicketSummary {
   customerId?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  tags?: Tag[];
 }
 
 export type CustomerTimelineItemType =
@@ -156,6 +158,8 @@ export interface Conversation {
   latestAgentReply?: Message | null;
   recentMessages?: Message[];
   messages?: Message[];
+  activities?: ConversationActivity[];
+  tags?: Tag[];
   unreadCount?: number;
 
   assigneeId?: string | null;
@@ -163,6 +167,19 @@ export interface Conversation {
 
   updatedAt?: string;
   createdAt?: string;
+}
+
+export interface ConversationActivity {
+  id: string;
+  conversationId: string;
+  actorId: string;
+  actor?: AuthUser;
+  action: "STATUS_CHANGED";
+  metadata?: {
+    from?: ConversationStatus;
+    to?: ConversationStatus;
+  } | null;
+  createdAt: string;
 }
 
 // Backend-aligned sender types.
@@ -225,6 +242,15 @@ export interface SavedReply {
   updatedAt?: string;
 }
 
+export interface Tag {
+  id: string;
+  companyId: string;
+  name: string;
+  color?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type TicketStatus =
   | "OPEN"
@@ -263,6 +289,7 @@ export interface Ticket {
   notes?: TicketNote[];
   activities?: TicketActivity[];
   metrics?: TicketMetrics;
+  tags?: Tag[];
 
   slaDueAt?: string | null;
 

@@ -7,10 +7,10 @@ import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
 import { useInboxStore } from "@/stores/inbox-store";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TagPills } from "@/features/tags/tag-editor";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
@@ -132,17 +132,7 @@ export function CustomerInspectorPanel({
             Tags
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {(customer?.tags?.length ? customer.tags : ["No tags"]).map(
-              (t, i) => (
-                <Badge
-                  key={`${t}-${i}`}
-                  tone="neutral"
-                  className="normal-case"
-                >
-                  {t}
-                </Badge>
-              ),
-            )}
+            <TagPills tags={customer?.tags} />
           </div>
         </Card>
 

@@ -19,9 +19,15 @@ import {
   listSavedReplies,
   updateSavedReply,
 } from "@/api/saved-replies";
+import {
+  createTag,
+  deleteTag,
+  listTags,
+  updateTag,
+} from "@/api/tags";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
-import type { SavedReply } from "@/types/models";
+import type { SavedReply, Tag } from "@/types/models";
 
 const tabs = [
   "Profile",
@@ -30,6 +36,7 @@ const tabs = [
   "Channels",
   "Widget",
   "Saved replies",
+  "Tags",
   "Notifications",
 ] as const;
 
@@ -367,6 +374,13 @@ export default function SettingsPage() {
             />
           )}
 
+          {tab === "Tags" && (
+            <TagsSettings
+              token={token ?? ""}
+              canMutate={user?.role !== "VIEWER"}
+            />
+          )}
+
           {tab === "Notifications" && (
             <Card className="space-y-3 p-5">
               <h2 className="text-sm font-semibold text-oc-text">
@@ -627,6 +641,267 @@ function SavedRepliesSettings({
                     onClick={() => {
                       if (window.confirm("Delete this saved reply?")) {
                         deleteMutation.mutate(reply.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function TagsSettings({
+  token,
+  canMutate,
+}: {
+  token: string;
+  canMutate: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [color, setColor] = useState("#7c3aed");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  const tagsQuery = useQuery({
+    queryKey: queryKeys.tags(),
+    queryFn: () => listTags(token),
+    enabled: Boolean(token),
+  });
+
+  const tags = useMemo(() => tagsQuery.data ?? [], [tagsQuery.data]);
+  const filteredTags = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return tags;
+
+    return tags.filter((tag) => tag.name.toLowerCase().includes(needle));
+  }, [search, tags]);
+
+  const resetForm = () => {
+    setName("");
+    setColor("#7c3aed");
+    setEditingId(null);
+  };
+
+  const createMutation = useMutation({
+    mutationFn: () => createTag(token, { name, color }),
+    onSuccess: async () => {
+      resetForm();
+      await queryClient.invalidateQueries({ queryKey: ["tags"] });
+      toast.success("Tag created");
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not create tag"));
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () => updateTag(token, editingId!, { name, color }),
+    onSuccess: async () => {
+      resetForm();
+      await queryClient.invalidateQueries({ queryKey: ["tags"] });
+      await queryClient.invalidateQueries({ queryKey: ["customers"] });
+      await queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success("Tag updated");
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not update tag"));
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (tagId: string) => deleteTag(token, tagId),
+    onSuccess: async () => {
+      resetForm();
+      await queryClient.invalidateQueries({ queryKey: ["tags"] });
+      await queryClient.invalidateQueries({ queryKey: ["customers"] });
+      await queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      await queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success("Tag deleted");
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not delete tag"));
+    },
+  });
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canMutate || !name.trim()) return;
+
+    if (editingId) {
+      updateMutation.mutate();
+      return;
+    }
+
+    createMutation.mutate();
+  };
+
+  const startEdit = (tag: Tag) => {
+    setEditingId(tag.id);
+    setName(tag.name);
+    setColor(tag.color ?? "#7c3aed");
+  };
+
+  const busy =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    deleteMutation.isPending;
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-oc-text">Tags</h2>
+          <p className="mt-1 text-sm leading-6 text-oc-muted">
+            Create tenant-scoped labels agents can apply to customers, tickets,
+            and conversations.
+          </p>
+        </div>
+
+        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-[1fr_auto]">
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Name
+            <Input
+              className="mt-2"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="VIP, Billing, Follow-up..."
+              disabled={!canMutate || busy}
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Color
+            <div className="mt-2 flex h-11 items-center gap-2 rounded-xl border border-oc-border bg-oc-panel px-3 shadow-inner">
+              <input
+                type="color"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+                disabled={!canMutate || busy}
+                className="h-7 w-9 shrink-0 rounded border border-oc-border bg-transparent"
+                aria-label="Tag color"
+              />
+              <span className="font-mono text-xs text-oc-muted">{color}</span>
+            </div>
+          </label>
+          <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-center">
+            <Button
+              type="submit"
+              disabled={!canMutate || busy || !name.trim()}
+            >
+              {editingId
+                ? updateMutation.isPending
+                  ? "Saving..."
+                  : "Save tag"
+                : createMutation.isPending
+                  ? "Creating..."
+                  : "Create tag"}
+            </Button>
+            {editingId && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={busy}
+                onClick={resetForm}
+              >
+                Cancel edit
+              </Button>
+            )}
+            {!canMutate && (
+              <p className="text-xs text-oc-faint">
+                Viewer users can read tags but cannot modify them.
+              </p>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-oc-text">
+              Tag library
+            </h3>
+            <p className="mt-1 text-sm text-oc-muted">
+              {tags.length} {tags.length === 1 ? "tag" : "tags"}
+            </p>
+          </div>
+          <label className="min-w-0 text-xs font-semibold uppercase text-oc-faint sm:w-72">
+            Search
+            <Input
+              className="mt-2"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Find tags..."
+            />
+          </label>
+        </div>
+
+        {tagsQuery.isLoading && (
+          <p className="text-sm text-oc-muted">Loading tags...</p>
+        )}
+
+        {tagsQuery.error && (
+          <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-200">
+            {getErrorMessage(tagsQuery.error, "Could not load tags")}
+          </div>
+        )}
+
+        {!tagsQuery.isLoading &&
+          !tagsQuery.error &&
+          filteredTags.length === 0 && (
+            <div className="rounded-lg border border-dashed border-oc-border bg-oc-bg/40 p-5 text-sm text-oc-muted">
+              {search.trim() ? "No tags match your search." : "No tags yet."}
+            </div>
+          )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {filteredTags.map((tag) => (
+            <div
+              key={tag.id}
+              className="rounded-lg border border-oc-border bg-oc-bg/45 p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-oc-text">
+                    {tag.color && (
+                      <span
+                        aria-hidden="true"
+                        className="h-3 w-3 shrink-0 rounded-full"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                    )}
+                    <span className="truncate">{tag.name}</span>
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-oc-faint">
+                    {tag.color ?? "No color"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() => startEdit(tag)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() => {
+                      if (window.confirm("Delete this tag?")) {
+                        deleteMutation.mutate(tag.id);
                       }
                     }}
                   >

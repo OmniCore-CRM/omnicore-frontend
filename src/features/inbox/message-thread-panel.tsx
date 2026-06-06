@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import {
   getConversation,
   listMessages,
+  patchConversation,
   sendMessage,
 } from "@/api/conversations";
 import { createTicketFromConversation } from "@/api/tickets";
@@ -21,9 +22,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { TagPills } from "@/features/tags/tag-editor";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
-import type { Message, SavedReply } from "@/types/models";
+import type {
+  Conversation,
+  ConversationStatus,
+  Message,
+  SavedReply,
+} from "@/types/models";
 import {
   ArrowLeft,
   Check,
@@ -86,6 +93,20 @@ function reconcileMessage(
   };
 }
 
+const conversationStatuses: ConversationStatus[] = [
+  "OPEN",
+  "PENDING",
+  "RESOLVED",
+  "SNOOZED",
+];
+
+function statusTone(status?: ConversationStatus) {
+  if (status === "RESOLVED") return "success" as const;
+  if (status === "PENDING") return "warning" as const;
+  if (status === "SNOOZED") return "accent" as const;
+  return "neutral" as const;
+}
+
 export function MessageThreadPanel({
   onBack,
   onOpenCustomer,
@@ -94,6 +115,7 @@ export function MessageThreadPanel({
   onOpenCustomer: () => void;
 }) {
   const token = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
   const bottomRef = useRef<HTMLDivElement>(null);
   const socketState = useSocketConnection();
@@ -233,6 +255,31 @@ export function MessageThreadPanel({
     },
   });
 
+  const statusMut = useMutation({
+    mutationFn: (status: ConversationStatus) =>
+      patchConversation(token!, selectedId!, { status }),
+    onSuccess: (updated) => {
+      qc.setQueryData(queryKeys.conversation(updated.id), updated);
+      qc.setQueriesData(
+        { queryKey: ["conversations"] },
+        (old: Paginated<Conversation> | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((item) =>
+              item.id === updated.id ? { ...item, ...updated } : item,
+            ),
+          };
+        },
+      );
+      void qc.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success(`Conversation marked ${updated.status?.toLowerCase()}`);
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err, "Could not update conversation status"));
+    },
+  });
+
   const [draft, setDraft] = useState("");
   const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
   const [savedReplySearch, setSavedReplySearch] = useState("");
@@ -338,6 +385,12 @@ export function MessageThreadPanel({
                 {conversation.channel}
               </Badge>
             )}
+            <Badge tone={statusTone(conversation?.status)}>
+              {conversation?.status ?? "OPEN"}
+            </Badge>
+            {Boolean(conversation?.tags?.length) && (
+              <TagPills tags={conversation?.tags} />
+            )}
             <span className="inline-flex items-center gap-1 text-xs text-oc-faint">
               {socketState === "live" ? (
                 <Wifi className="h-3.5 w-3.5 text-oc-success" />
@@ -373,9 +426,28 @@ export function MessageThreadPanel({
             <span className="hidden sm:inline">Ticket</span>
             <span className="sm:hidden">Tkt</span>
           </Button>
-          <Button variant="secondary" size="sm" type="button" disabled className="hidden sm:inline-flex">
-            Resolve
-          </Button>
+          <label className="relative">
+            <span className="sr-only">Conversation status</span>
+            <select
+              aria-label="Conversation status"
+              value={conversation?.status ?? "OPEN"}
+              onChange={(event) =>
+                statusMut.mutate(event.target.value as ConversationStatus)
+              }
+              disabled={
+                convLoading ||
+                statusMut.isPending ||
+                user?.role === "VIEWER"
+              }
+              className="h-10 max-w-[118px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-xs font-semibold text-oc-text outline-none transition-colors hover:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-oc-accent disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-none sm:text-sm"
+            >
+              {conversationStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {status.charAt(0) + status.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </header>
 

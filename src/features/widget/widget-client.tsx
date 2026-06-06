@@ -8,9 +8,15 @@ import {
   listWidgetMessages,
   sendWidgetMessage,
 } from "@/api/widget";
+import {
+  downloadWidgetAttachment,
+  uploadWidgetAttachment,
+} from "@/api/attachments";
 import { getErrorMessage } from "@/api/errors";
 import { getSocketUrl } from "@/lib/env";
-import type { Message } from "@/types/models";
+import type { Attachment, Message } from "@/types/models";
+import { AttachmentList } from "@/features/attachments/attachment-list";
+import { Paperclip } from "lucide-react";
 
 type StoredWidgetSession = {
   sessionToken: string;
@@ -27,6 +33,7 @@ const socketEvents = {
   joinConversation: "join_conversation",
   newMessage: "new_message",
   statusUpdated: "message_status_updated",
+  attachmentCreated: "attachment_created",
 };
 
 const messageShortcuts = [
@@ -65,12 +72,17 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
   const [bootstrapped, setBootstrapped] = useState(false);
   const [session, setSession] = useState<StoredWidgetSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [visitorName, setVisitorName] = useState("");
   const [visitorEmail, setVisitorEmail] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const [composer, setComposer] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
+    string | null
+  >(null);
   const [connected, setConnected] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -123,12 +135,14 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
         );
         if (!cancelled) {
           setMessages(page.items);
+          setAttachments(page.attachments ?? []);
         }
       } catch (err) {
         if (!cancelled) {
           localStorage.removeItem(storageKey(publicKey));
           setSession(null);
           setMessages([]);
+          setAttachments([]);
           setError(getErrorMessage(err, "Please start a new chat"));
         }
       }
@@ -173,6 +187,16 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
     socket.on(socketEvents.statusUpdated, (message: Message) => {
       if (message.conversationId === activeSession.conversationId) {
         setMessages((current) => upsertMessage(current, message));
+      }
+    });
+
+    socket.on(socketEvents.attachmentCreated, (attachment: Attachment) => {
+      if (attachment.conversationId === activeSession.conversationId) {
+        setAttachments((current) =>
+          current.some((item) => item.id === attachment.id)
+            ? current
+            : [...current, attachment],
+        );
       }
     });
 
@@ -274,6 +298,45 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
       setError(getErrorMessage(err, "Message failed to send"));
     } finally {
       setSending(false);
+    }
+  }
+
+  async function uploadAttachment(file: File) {
+    if (!session) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const attachment = await uploadWidgetAttachment(
+        publicKey,
+        session.conversationId,
+        session.sessionToken,
+        file,
+      );
+      setAttachments((current) =>
+        current.some((item) => item.id === attachment.id)
+          ? current
+          : [...current, attachment],
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, "Attachment failed to upload"));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleAttachmentDownload(attachment: Attachment) {
+    if (!session) return;
+    setDownloadingAttachmentId(attachment.id);
+    try {
+      await downloadWidgetAttachment(
+        publicKey,
+        session.sessionToken,
+        attachment,
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, "Attachment failed to download"));
+    } finally {
+      setDownloadingAttachmentId(null);
     }
   }
 
@@ -429,6 +492,19 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
                   </div>
                 );
               })}
+              {Boolean(attachments.length) && (
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <p className="mb-3 text-xs font-semibold uppercase text-slate-500">
+                    Shared files
+                  </p>
+                  <AttachmentList
+                    attachments={attachments}
+                    downloadingId={downloadingAttachmentId}
+                    onDownload={handleAttachmentDownload}
+                    light
+                  />
+                </div>
+              )}
               <div ref={bottomRef} />
             </div>
 
@@ -453,6 +529,21 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
               onSubmit={sendMessage}
               className="flex shrink-0 items-end gap-3 border-t border-slate-200 bg-white p-4"
             >
+              <label className="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-slate-700 transition hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate-500">
+                <Paperclip className="h-4 w-4" />
+                <span className="sr-only">Upload attachment</span>
+                <input
+                  type="file"
+                  className="sr-only"
+                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,.doc,.docx,.xls,.xlsx"
+                  disabled={uploading}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void uploadAttachment(file);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
               <textarea
                 value={composer}
                 onChange={(event) => setComposer(event.target.value)}

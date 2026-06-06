@@ -159,6 +159,7 @@ export interface Conversation {
   recentMessages?: Message[];
   messages?: Message[];
   activities?: ConversationActivity[];
+  attachments?: Attachment[];
   tags?: Tag[];
   unreadCount?: number;
 
@@ -213,15 +214,32 @@ export interface Message {
   provider?: ConversationChannel | null;
   externalMessageId?: string | null;
 
-  attachments?: {
-    id: string;
-    name: string;
-    url?: string;
-    mimeType?: string;
-  }[];
+  attachments?: Attachment[];
 
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface Attachment {
+  id: string;
+  companyId?: string;
+  uploadedById?: string | null;
+  uploadedBy?: {
+    id: string;
+    firstName: string;
+    lastName?: string | null;
+    displayName?: string | null;
+  } | null;
+  customerId?: string | null;
+  conversationId?: string | null;
+  messageId?: string | null;
+  ticketId?: string | null;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  uploadedFrom: "AGENT" | "CUSTOMER_WIDGET";
+  downloadUrl: string;
+  createdAt: string;
 }
 
 export interface WidgetInstallation {
@@ -294,6 +312,7 @@ export interface Ticket {
   activities?: TicketActivity[];
   metrics?: TicketMetrics;
   tags?: Tag[];
+  attachments?: Attachment[];
 
   slaDueAt?: string | null;
 

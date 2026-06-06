@@ -12,6 +12,10 @@ import {
 import { createTicketFromConversation } from "@/api/tickets";
 import { listSavedReplies } from "@/api/saved-replies";
 import { assignConversationTeam, listTeams } from "@/api/teams";
+import {
+  downloadAttachment,
+  uploadConversationAttachment,
+} from "@/api/attachments";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useConversationPresence } from "@/hooks/use-conversation-presence";
@@ -24,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TagPills } from "@/features/tags/tag-editor";
+import { AttachmentList } from "@/features/attachments/attachment-list";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
 import type {
@@ -31,6 +36,7 @@ import type {
   ConversationStatus,
   Message,
   SavedReply,
+  Attachment,
 } from "@/types/models";
 import {
   ArrowLeft,
@@ -38,6 +44,7 @@ import {
   CheckCheck,
   Info,
   Loader2,
+  Paperclip,
   Search,
   Wifi,
   WifiOff,
@@ -299,6 +306,9 @@ export function MessageThreadPanel({
   });
 
   const [draft, setDraft] = useState("");
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
+    string | null
+  >(null);
   const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
   const [savedReplySearch, setSavedReplySearch] = useState("");
 
@@ -313,6 +323,31 @@ export function MessageThreadPanel({
         reply.content.toLowerCase().includes(needle),
     );
   }, [savedRepliesQuery.data, savedReplySearch]);
+
+  const uploadAttachmentMut = useMutation({
+    mutationFn: (file: File) =>
+      uploadConversationAttachment(token!, selectedId!, file),
+    onSuccess: async () => {
+      toast.success("Attachment uploaded");
+      await qc.invalidateQueries({
+        queryKey: queryKeys.conversation(selectedId!),
+      });
+      await qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not upload attachment")),
+  });
+
+  const handleDownload = async (attachment: Attachment) => {
+    setDownloadingAttachmentId(attachment.id);
+    try {
+      await downloadAttachment(token!, attachment);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not download attachment"));
+    } finally {
+      setDownloadingAttachmentId(null);
+    }
+  };
 
   const onDraftChange = (v: string) => {
     setDraft(v);
@@ -542,6 +577,18 @@ export function MessageThreadPanel({
             Customer is typing…
           </div>
         )}
+        {Boolean(conversation?.attachments?.length) && (
+          <div className="mx-auto w-full max-w-2xl rounded-xl border border-oc-border bg-oc-panel/35 p-3">
+            <p className="mb-3 text-xs font-semibold uppercase text-oc-faint">
+              Shared files
+            </p>
+            <AttachmentList
+              attachments={conversation?.attachments}
+              downloadingId={downloadingAttachmentId}
+              onDownload={handleDownload}
+            />
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -637,6 +684,28 @@ export function MessageThreadPanel({
             disabled={sendMut.isPending}
           />
           <div className="flex shrink-0 flex-col gap-2">
+            <label
+              className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-oc-border bg-transparent px-3 text-sm font-medium text-oc-text transition-colors hover:bg-oc-panel focus-within:outline focus-within:outline-2 focus-within:outline-oc-accent"
+              title="Upload attachment"
+            >
+              {uploadAttachmentMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Paperclip className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">File</span>
+              <input
+                type="file"
+                className="sr-only"
+                accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,.doc,.docx,.xls,.xlsx"
+                disabled={uploadAttachmentMut.isPending || user?.role === "VIEWER"}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) uploadAttachmentMut.mutate(file);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
             <Button
               type="button"
               variant={savedRepliesOpen ? "secondary" : "outline"}

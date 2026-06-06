@@ -159,11 +159,14 @@ export interface Conversation {
   recentMessages?: Message[];
   messages?: Message[];
   activities?: ConversationActivity[];
+  attachments?: Attachment[];
   tags?: Tag[];
   unreadCount?: number;
 
   assigneeId?: string | null;
   assignee?: AuthUser | null;
+  teamId?: string | null;
+  team?: Team | null;
 
   updatedAt?: string;
   createdAt?: string;
@@ -174,7 +177,7 @@ export interface ConversationActivity {
   conversationId: string;
   actorId: string;
   actor?: AuthUser;
-  action: "STATUS_CHANGED";
+  action: "STATUS_CHANGED" | "TEAM_ASSIGNED" | "TEAM_UNASSIGNED";
   metadata?: {
     from?: ConversationStatus;
     to?: ConversationStatus;
@@ -211,15 +214,32 @@ export interface Message {
   provider?: ConversationChannel | null;
   externalMessageId?: string | null;
 
-  attachments?: {
-    id: string;
-    name: string;
-    url?: string;
-    mimeType?: string;
-  }[];
+  attachments?: Attachment[];
 
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface Attachment {
+  id: string;
+  companyId?: string;
+  uploadedById?: string | null;
+  uploadedBy?: {
+    id: string;
+    firstName: string;
+    lastName?: string | null;
+    displayName?: string | null;
+  } | null;
+  customerId?: string | null;
+  conversationId?: string | null;
+  messageId?: string | null;
+  ticketId?: string | null;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  uploadedFrom: "AGENT" | "CUSTOMER_WIDGET";
+  downloadUrl: string;
+  createdAt: string;
 }
 
 export interface WidgetInstallation {
@@ -270,6 +290,8 @@ export interface Ticket {
 
   assigneeId?: string | null;
   assignee?: AuthUser | null;
+  teamId?: string | null;
+  team?: Team | null;
   createdById?: string;
   createdBy?: AuthUser | null;
   customerId?: string | null;
@@ -290,11 +312,26 @@ export interface Ticket {
   activities?: TicketActivity[];
   metrics?: TicketMetrics;
   tags?: Tag[];
+  attachments?: Attachment[];
 
   slaDueAt?: string | null;
 
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface Team {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string | null;
+  members: AuthUser[];
+  ticketCount: number;
+  conversationCount: number;
+  openTicketCount: number;
+  openConversationCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type TicketActivityAction =
@@ -306,7 +343,9 @@ export type TicketActivityAction =
   | "ASSIGNED"
   | "UNASSIGNED"
   | "NOTE_ADDED"
-  | "MESSAGE_RECEIVED_ON_WIDGET";
+  | "MESSAGE_RECEIVED_ON_WIDGET"
+  | "TEAM_ASSIGNED"
+  | "TEAM_UNASSIGNED";
 
 export interface TicketMetrics {
   createdAt: string;

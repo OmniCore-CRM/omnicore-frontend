@@ -21,6 +21,8 @@ import {
   updateTicket,
 } from "@/api/tickets";
 import { listUsers } from "@/api/users";
+import { assignTicketTeam, listTeams } from "@/api/teams";
+import { downloadAttachment, uploadTicketAttachment } from "@/api/attachments";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
@@ -32,15 +34,18 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TagEditor, TagPills } from "@/features/tags/tag-editor";
+import { AttachmentList } from "@/features/attachments/attachment-list";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 import type {
   AuthUser,
+  Attachment,
   Message,
   Ticket,
   TicketActivity,
   TicketPriority,
   TicketStatus,
+  Team,
 } from "@/types/models";
 import {
   ArrowLeft,
@@ -50,8 +55,10 @@ import {
   FileText,
   Eye,
   LifeBuoy,
+  Loader2,
   MessageSquare,
   Plus,
+  Paperclip,
   Reply,
   Search,
   Timer,
@@ -284,6 +291,9 @@ function TicketsWorkspace() {
   const [conversationId, setConversationId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
+    string | null
+  >(null);
   const canMutate = user?.role !== "VIEWER";
 
   const params = useMemo(
@@ -348,6 +358,11 @@ function TicketsWorkspace() {
     queryFn: () => listUsers(token!),
     enabled: !!token,
   });
+  const { data: teams = [] } = useQuery({
+    queryKey: queryKeys.teams,
+    queryFn: () => listTeams(token!),
+    enabled: !!token,
+  });
 
   const { data: notes = [] } = useQuery({
     queryKey: ["ticket-notes", selectedId ?? "_"],
@@ -404,6 +419,19 @@ function TicketsWorkspace() {
       toast.error(getErrorMessage(err, "Could not update ticket"));
     },
   });
+  const teamMut = useMutation({
+    mutationFn: (teamId: string | null) =>
+      assignTicketTeam(token!, selectedId!, teamId),
+    onSuccess: async (updated) => {
+      toast.success("Ticket team updated");
+      qc.setQueryData(queryKeys.ticket(updated.id), updated);
+      await qc.invalidateQueries({ queryKey: ["tickets"] });
+      await qc.invalidateQueries({ queryKey: queryKeys.teams });
+      await qc.invalidateQueries({ queryKey: ["ticket-activity", updated.id] });
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update ticket team")),
+  });
 
   const noteMut = useMutation({
     mutationFn: () =>
@@ -423,6 +451,28 @@ function TicketsWorkspace() {
       toast.error(getErrorMessage(err, "Could not add note"));
     },
   });
+
+  const attachmentMut = useMutation({
+    mutationFn: (file: File) => uploadTicketAttachment(token!, selectedId!, file),
+    onSuccess: async () => {
+      toast.success("Attachment uploaded");
+      await qc.invalidateQueries({ queryKey: queryKeys.ticket(selectedId!) });
+      await qc.invalidateQueries({ queryKey: ["tickets"] });
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not upload attachment")),
+  });
+
+  const handleAttachmentDownload = async (attachment: Attachment) => {
+    setDownloadingAttachmentId(attachment.id);
+    try {
+      await downloadAttachment(token!, attachment);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not download attachment"));
+    } finally {
+      setDownloadingAttachmentId(null);
+    }
+  };
 
   const submitCreate = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -733,6 +783,7 @@ function TicketsWorkspace() {
         loading={tLoading}
         canMutate={canMutate}
         users={users}
+        teams={teams}
         notes={notes}
         activity={activity}
         error={ticketError}
@@ -741,8 +792,14 @@ function TicketsWorkspace() {
         onBack={() => setSelectedId(null)}
         updateMutate={(body) => updateMut.mutate(body)}
         updating={updateMut.isPending}
+        teamMutate={(teamId) => teamMut.mutate(teamId)}
+        updatingTeam={teamMut.isPending}
         noteMutate={() => noteMut.mutate()}
         addingNote={noteMut.isPending}
+        uploadAttachment={(file) => attachmentMut.mutate(file)}
+        uploadingAttachment={attachmentMut.isPending}
+        downloadingAttachmentId={downloadingAttachmentId}
+        downloadAttachment={handleAttachmentDownload}
       />
     </div>
   );
@@ -1044,6 +1101,7 @@ function TicketDetailPanel({
   loading,
   canMutate,
   users,
+  teams,
   notes,
   activity,
   error,
@@ -1052,14 +1110,21 @@ function TicketDetailPanel({
   onBack,
   updateMutate,
   updating,
+  teamMutate,
+  updatingTeam,
   noteMutate,
   addingNote,
+  uploadAttachment,
+  uploadingAttachment,
+  downloadingAttachmentId,
+  downloadAttachment: onDownloadAttachment,
 }: {
   ticket?: Ticket;
   selectedId: string | null;
   loading: boolean;
   canMutate: boolean;
   users: AuthUser[];
+  teams: Team[];
   notes: Ticket["notes"];
   activity: Ticket["activities"];
   error: unknown;
@@ -1072,8 +1137,14 @@ function TicketDetailPanel({
     assigneeId?: string | null;
   }) => void;
   updating: boolean;
+  teamMutate: (teamId: string | null) => void;
+  updatingTeam: boolean;
   noteMutate: () => void;
   addingNote: boolean;
+  uploadAttachment: (file: File) => void;
+  uploadingAttachment: boolean;
+  downloadingAttachmentId: string | null;
+  downloadAttachment: (attachment: Attachment) => void;
 }) {
   const latestCustomerMessage = ticket?.conversation?.latestCustomerMessage;
   const latestAgentReply = ticket?.conversation?.latestAgentReply;
@@ -1157,6 +1228,11 @@ function TicketDetailPanel({
                   >
                     {ticket.priority}
                   </Badge>
+                  {ticket.team && (
+                    <Badge tone="accent" className="normal-case">
+                      {ticket.team.name}
+                    </Badge>
+                  )}
                   <TagPills tags={ticket.tags} />
                 </div>
                 <div>
@@ -1253,6 +1329,24 @@ function TicketDetailPanel({
                       ))}
                     </select>
                   </label>
+                  <label className="block text-sm font-medium text-oc-text">
+                    Team queue
+                    <select
+                      value={ticket.teamId ?? ""}
+                      disabled={!canMutate || updatingTeam}
+                      onChange={(event) =>
+                        teamMutate(event.target.value || null)
+                      }
+                      className={fieldControlClass}
+                    >
+                      <option value="">No team</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </Card>
 
@@ -1271,6 +1365,12 @@ function TicketDetailPanel({
                     <dt className="text-oc-muted">Assignee</dt>
                     <dd className="min-w-0 truncate text-oc-text">
                       {displayUser(ticket.assignee)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3 px-3 py-3">
+                    <dt className="text-oc-muted">Team</dt>
+                    <dd className="min-w-0 truncate text-oc-text">
+                      {ticket.team?.name || "No team"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-3 px-3 py-3">
@@ -1364,6 +1464,45 @@ function TicketDetailPanel({
                     icon={<Timer className="h-4 w-4" />}
                   />
                 </div>
+              </Card>
+
+              <Card className="space-y-5 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase text-oc-faint">
+                      Attachments
+                    </h3>
+                    <p className="mt-1 text-sm text-oc-muted">
+                      Files shared for this support issue.
+                    </p>
+                  </div>
+                  {canMutate && (
+                    <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm font-medium text-oc-text transition-colors hover:bg-oc-bg focus-within:outline focus-within:outline-2 focus-within:outline-oc-accent">
+                      {uploadingAttachment ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Paperclip className="h-4 w-4" />
+                      )}
+                      Upload file
+                      <input
+                        type="file"
+                        className="sr-only"
+                        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,.doc,.docx,.xls,.xlsx"
+                        disabled={uploadingAttachment}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) uploadAttachment(file);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+                <AttachmentList
+                  attachments={ticket.attachments}
+                  downloadingId={downloadingAttachmentId}
+                  onDownload={onDownloadAttachment}
+                />
               </Card>
 
               <Card className="space-y-5 p-5">

@@ -11,6 +11,11 @@ import {
 } from "@/api/conversations";
 import { createTicketFromConversation } from "@/api/tickets";
 import { listSavedReplies } from "@/api/saved-replies";
+import { assignConversationTeam, listTeams } from "@/api/teams";
+import {
+  downloadAttachment,
+  uploadConversationAttachment,
+} from "@/api/attachments";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useConversationPresence } from "@/hooks/use-conversation-presence";
@@ -23,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TagPills } from "@/features/tags/tag-editor";
+import { AttachmentList } from "@/features/attachments/attachment-list";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
 import type {
@@ -30,6 +36,7 @@ import type {
   ConversationStatus,
   Message,
   SavedReply,
+  Attachment,
 } from "@/types/models";
 import {
   ArrowLeft,
@@ -37,6 +44,7 @@ import {
   CheckCheck,
   Info,
   Loader2,
+  Paperclip,
   Search,
   Wifi,
   WifiOff,
@@ -140,6 +148,11 @@ export function MessageThreadPanel({
   const savedRepliesQuery = useQuery({
     queryKey: queryKeys.savedReplies(),
     queryFn: () => listSavedReplies(token!),
+    enabled: !!token && !!selectedId,
+  });
+  const teamsQuery = useQuery({
+    queryKey: queryKeys.teams,
+    queryFn: () => listTeams(token!),
     enabled: !!token && !!selectedId,
   });
 
@@ -279,8 +292,23 @@ export function MessageThreadPanel({
       toast.error(getErrorMessage(err, "Could not update conversation status"));
     },
   });
+  const teamMut = useMutation({
+    mutationFn: (teamId: string | null) =>
+      assignConversationTeam(token!, selectedId!, teamId),
+    onSuccess: (updated) => {
+      qc.setQueryData(queryKeys.conversation(updated.id), updated);
+      void qc.invalidateQueries({ queryKey: ["conversations"] });
+      void qc.invalidateQueries({ queryKey: queryKeys.teams });
+      toast.success("Conversation team updated");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update conversation team")),
+  });
 
   const [draft, setDraft] = useState("");
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
+    string | null
+  >(null);
   const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
   const [savedReplySearch, setSavedReplySearch] = useState("");
 
@@ -295,6 +323,31 @@ export function MessageThreadPanel({
         reply.content.toLowerCase().includes(needle),
     );
   }, [savedRepliesQuery.data, savedReplySearch]);
+
+  const uploadAttachmentMut = useMutation({
+    mutationFn: (file: File) =>
+      uploadConversationAttachment(token!, selectedId!, file),
+    onSuccess: async () => {
+      toast.success("Attachment uploaded");
+      await qc.invalidateQueries({
+        queryKey: queryKeys.conversation(selectedId!),
+      });
+      await qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not upload attachment")),
+  });
+
+  const handleDownload = async (attachment: Attachment) => {
+    setDownloadingAttachmentId(attachment.id);
+    try {
+      await downloadAttachment(token!, attachment);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Could not download attachment"));
+    } finally {
+      setDownloadingAttachmentId(null);
+    }
+  };
 
   const onDraftChange = (v: string) => {
     setDraft(v);
@@ -388,6 +441,24 @@ export function MessageThreadPanel({
             <Badge tone={statusTone(conversation?.status)}>
               {conversation?.status ?? "OPEN"}
             </Badge>
+            {conversation?.team && (
+              <Badge tone="accent">{conversation.team.name}</Badge>
+            )}
+            <label className="sm:hidden">
+              <span className="sr-only">Conversation team</span>
+              <select
+                aria-label="Conversation team mobile"
+                value={conversation?.teamId ?? ""}
+                onChange={(event) => teamMut.mutate(event.target.value || null)}
+                disabled={teamMut.isPending || user?.role === "VIEWER"}
+                className="h-8 max-w-[120px] rounded-lg border border-oc-border bg-oc-panel px-2 text-xs font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
+              >
+                <option value="">No team</option>
+                {(teamsQuery.data ?? []).map((team) => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
+            </label>
             {Boolean(conversation?.tags?.length) && (
               <TagPills tags={conversation?.tags} />
             )}
@@ -448,6 +519,21 @@ export function MessageThreadPanel({
               ))}
             </select>
           </label>
+          <label className="relative hidden sm:block">
+            <span className="sr-only">Conversation team</span>
+            <select
+              aria-label="Conversation team"
+              value={conversation?.teamId ?? ""}
+              onChange={(event) => teamMut.mutate(event.target.value || null)}
+              disabled={teamMut.isPending || user?.role === "VIEWER"}
+              className="h-10 max-w-[132px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-sm font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
+            >
+              <option value="">No team</option>
+              {(teamsQuery.data ?? []).map((team) => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+          </label>
         </div>
       </header>
 
@@ -489,6 +575,18 @@ export function MessageThreadPanel({
               <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-oc-muted" />
             </span>
             Customer is typing…
+          </div>
+        )}
+        {Boolean(conversation?.attachments?.length) && (
+          <div className="mx-auto w-full max-w-2xl rounded-xl border border-oc-border bg-oc-panel/35 p-3">
+            <p className="mb-3 text-xs font-semibold uppercase text-oc-faint">
+              Shared files
+            </p>
+            <AttachmentList
+              attachments={conversation?.attachments}
+              downloadingId={downloadingAttachmentId}
+              onDownload={handleDownload}
+            />
           </div>
         )}
         <div ref={bottomRef} />
@@ -586,6 +684,28 @@ export function MessageThreadPanel({
             disabled={sendMut.isPending}
           />
           <div className="flex shrink-0 flex-col gap-2">
+            <label
+              className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-oc-border bg-transparent px-3 text-sm font-medium text-oc-text transition-colors hover:bg-oc-panel focus-within:outline focus-within:outline-2 focus-within:outline-oc-accent"
+              title="Upload attachment"
+            >
+              {uploadAttachmentMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Paperclip className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">File</span>
+              <input
+                type="file"
+                className="sr-only"
+                accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,.doc,.docx,.xls,.xlsx"
+                disabled={uploadAttachmentMut.isPending || user?.role === "VIEWER"}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) uploadAttachmentMut.mutate(file);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
             <Button
               type="button"
               variant={savedRepliesOpen ? "secondary" : "outline"}

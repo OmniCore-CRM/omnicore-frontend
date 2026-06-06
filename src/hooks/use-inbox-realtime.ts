@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/components/providers/socket-provider";
 import { SOCKET_EVENTS } from "@/constants/socket-events";
 import { queryKeys } from "@/constants/query-keys";
-import type { Conversation, Message } from "@/types/models";
+import type { Attachment, Conversation, Message } from "@/types/models";
 
 type MessagePage = {
   items: Message[];
@@ -128,14 +128,28 @@ export function useInboxRealtime(companyId: string | null) {
       }
       bumpLists();
     };
+    const onAttachmentCreated = (payload: unknown) => {
+      const attachment = payload as Attachment | undefined;
+      if (attachment?.conversationId) {
+        void qc.invalidateQueries({
+          queryKey: queryKeys.conversation(attachment.conversationId),
+        });
+        void qc.invalidateQueries({
+          queryKey: queryKeys.messages(attachment.conversationId),
+        });
+      }
+      bumpLists();
+    };
     socket.on(SOCKET_EVENTS.NEW_MESSAGE, onMessage);
     socket.on(SOCKET_EVENTS.MESSAGE_STATUS_UPDATED, onStatusUpdated);
     socket.on(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
+    socket.on("attachment_created", onAttachmentCreated);
     socket.on(SOCKET_EVENTS.INBOX_REFRESH, bumpLists);
     return () => {
       socket.off(SOCKET_EVENTS.NEW_MESSAGE, onMessage);
       socket.off(SOCKET_EVENTS.MESSAGE_STATUS_UPDATED, onStatusUpdated);
       socket.off(SOCKET_EVENTS.CONVERSATION_UPDATED, onConversationUpdated);
+      socket.off("attachment_created", onAttachmentCreated);
       socket.off(SOCKET_EVENTS.INBOX_REFRESH, bumpLists);
     };
   }, [socket, qc]);

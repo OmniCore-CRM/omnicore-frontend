@@ -3,6 +3,7 @@ import { normalizePaginated } from "./normalize";
 import type { Paginated } from "@/types/api";
 import type {
   Message,
+  Attachment,
   WidgetInstallation,
 } from "@/types/models";
 
@@ -97,7 +98,7 @@ export async function listWidgetMessages(
   publicKey: string,
   conversationId: string,
   sessionToken: string,
-): Promise<Paginated<Message>> {
+): Promise<Paginated<Message> & { attachments?: Attachment[] }> {
   const q = new URLSearchParams({
     key: publicKey,
     sessionToken,
@@ -105,7 +106,14 @@ export async function listWidgetMessages(
   const raw = await apiFetch<unknown>(
     `/widget/conversations/${conversationId}/messages?${q.toString()}`,
   );
-  return normalizePaginated<Message>(raw);
+  const page = normalizePaginated<Message>(raw);
+  const attachments =
+    raw &&
+    typeof raw === "object" &&
+    Array.isArray((raw as { attachments?: unknown[] }).attachments)
+      ? ((raw as { attachments: Attachment[] }).attachments)
+      : undefined;
+  return { ...page, attachments };
 }
 
 export async function sendWidgetMessage(

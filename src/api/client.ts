@@ -112,4 +112,25 @@ export async function apiFetchSafe<T>(
   }
 }
 
+export async function apiDownload(
+  path: string,
+  options: Pick<RequestOptions, "token" | "headers"> = {},
+): Promise<Blob> {
+  const headers = new Headers(options.headers);
+  if (options.token) {
+    headers.set("Authorization", `Bearer ${options.token}`);
+  }
+
+  const res = await fetch(joinUrl(getApiBaseUrl(), path), {
+    headers,
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    return handleResponse<never>(res);
+  }
+
+  return res.blob();
+}
+
 export { readJson };

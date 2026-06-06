@@ -164,6 +164,8 @@ export interface Conversation {
 
   assigneeId?: string | null;
   assignee?: AuthUser | null;
+  teamId?: string | null;
+  team?: Team | null;
 
   updatedAt?: string;
   createdAt?: string;
@@ -174,7 +176,7 @@ export interface ConversationActivity {
   conversationId: string;
   actorId: string;
   actor?: AuthUser;
-  action: "STATUS_CHANGED";
+  action: "STATUS_CHANGED" | "TEAM_ASSIGNED" | "TEAM_UNASSIGNED";
   metadata?: {
     from?: ConversationStatus;
     to?: ConversationStatus;
@@ -270,6 +272,8 @@ export interface Ticket {
 
   assigneeId?: string | null;
   assignee?: AuthUser | null;
+  teamId?: string | null;
+  team?: Team | null;
   createdById?: string;
   createdBy?: AuthUser | null;
   customerId?: string | null;
@@ -297,6 +301,20 @@ export interface Ticket {
   updatedAt?: string;
 }
 
+export interface Team {
+  id: string;
+  companyId: string;
+  name: string;
+  description?: string | null;
+  members: AuthUser[];
+  ticketCount: number;
+  conversationCount: number;
+  openTicketCount: number;
+  openConversationCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type TicketActivityAction =
   | "TICKET_CREATED"
   | "TICKET_CREATED_FROM_WIDGET"
@@ -306,7 +324,9 @@ export type TicketActivityAction =
   | "ASSIGNED"
   | "UNASSIGNED"
   | "NOTE_ADDED"
-  | "MESSAGE_RECEIVED_ON_WIDGET";
+  | "MESSAGE_RECEIVED_ON_WIDGET"
+  | "TEAM_ASSIGNED"
+  | "TEAM_UNASSIGNED";
 
 export interface TicketMetrics {
   createdAt: string;

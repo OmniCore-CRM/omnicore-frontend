@@ -15,5 +15,5 @@ export const queryKeys = {
   tags: (params?: Record<string, string | undefined>) =>
     ["tags", params ?? {}] as const,
   analyticsOverview: ["analytics", "overview"] as const,
-  teamMembers: (companyId: string) => ["team", companyId] as const,
+  teams: ["teams"] as const,
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -204,10 +205,14 @@ export default function SettingsPage() {
                 Team & roles
               </h2>
               <p className="text-sm text-oc-muted">
-                {/* TODO: RBAC matrix + invitations */}
-                Invite flows and RBAC management will integrate with future
-                company administration APIs.
+                Teams are now managed from the dedicated Teams module.
               </p>
+              <Link
+                href="/teams"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-oc-accent px-4 text-sm font-medium text-white transition-colors hover:bg-violet-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent"
+              >
+                Open Teams
+              </Link>
             </Card>
           )}
 

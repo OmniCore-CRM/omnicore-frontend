@@ -11,6 +11,7 @@ import {
 } from "@/api/conversations";
 import { createTicketFromConversation } from "@/api/tickets";
 import { listSavedReplies } from "@/api/saved-replies";
+import { assignConversationTeam, listTeams } from "@/api/teams";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useConversationPresence } from "@/hooks/use-conversation-presence";
@@ -140,6 +141,11 @@ export function MessageThreadPanel({
   const savedRepliesQuery = useQuery({
     queryKey: queryKeys.savedReplies(),
     queryFn: () => listSavedReplies(token!),
+    enabled: !!token && !!selectedId,
+  });
+  const teamsQuery = useQuery({
+    queryKey: queryKeys.teams,
+    queryFn: () => listTeams(token!),
     enabled: !!token && !!selectedId,
   });
 
@@ -279,6 +285,18 @@ export function MessageThreadPanel({
       toast.error(getErrorMessage(err, "Could not update conversation status"));
     },
   });
+  const teamMut = useMutation({
+    mutationFn: (teamId: string | null) =>
+      assignConversationTeam(token!, selectedId!, teamId),
+    onSuccess: (updated) => {
+      qc.setQueryData(queryKeys.conversation(updated.id), updated);
+      void qc.invalidateQueries({ queryKey: ["conversations"] });
+      void qc.invalidateQueries({ queryKey: queryKeys.teams });
+      toast.success("Conversation team updated");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update conversation team")),
+  });
 
   const [draft, setDraft] = useState("");
   const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
@@ -388,6 +406,24 @@ export function MessageThreadPanel({
             <Badge tone={statusTone(conversation?.status)}>
               {conversation?.status ?? "OPEN"}
             </Badge>
+            {conversation?.team && (
+              <Badge tone="accent">{conversation.team.name}</Badge>
+            )}
+            <label className="sm:hidden">
+              <span className="sr-only">Conversation team</span>
+              <select
+                aria-label="Conversation team mobile"
+                value={conversation?.teamId ?? ""}
+                onChange={(event) => teamMut.mutate(event.target.value || null)}
+                disabled={teamMut.isPending || user?.role === "VIEWER"}
+                className="h-8 max-w-[120px] rounded-lg border border-oc-border bg-oc-panel px-2 text-xs font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
+              >
+                <option value="">No team</option>
+                {(teamsQuery.data ?? []).map((team) => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
+            </label>
             {Boolean(conversation?.tags?.length) && (
               <TagPills tags={conversation?.tags} />
             )}
@@ -445,6 +481,21 @@ export function MessageThreadPanel({
                 <option key={status} value={status}>
                   {status.charAt(0) + status.slice(1).toLowerCase()}
                 </option>
+              ))}
+            </select>
+          </label>
+          <label className="relative hidden sm:block">
+            <span className="sr-only">Conversation team</span>
+            <select
+              aria-label="Conversation team"
+              value={conversation?.teamId ?? ""}
+              onChange={(event) => teamMut.mutate(event.target.value || null)}
+              disabled={teamMut.isPending || user?.role === "VIEWER"}
+              className="h-10 max-w-[132px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-sm font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
+            >
+              <option value="">No team</option>
+              {(teamsQuery.data ?? []).map((team) => (
+                <option key={team.id} value={team.id}>{team.name}</option>
               ))}
             </select>
           </label>

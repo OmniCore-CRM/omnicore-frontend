@@ -21,6 +21,7 @@ import {
   updateTicket,
 } from "@/api/tickets";
 import { listUsers } from "@/api/users";
+import { assignTicketTeam, listTeams } from "@/api/teams";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
@@ -41,6 +42,7 @@ import type {
   TicketActivity,
   TicketPriority,
   TicketStatus,
+  Team,
 } from "@/types/models";
 import {
   ArrowLeft,
@@ -348,6 +350,11 @@ function TicketsWorkspace() {
     queryFn: () => listUsers(token!),
     enabled: !!token,
   });
+  const { data: teams = [] } = useQuery({
+    queryKey: queryKeys.teams,
+    queryFn: () => listTeams(token!),
+    enabled: !!token,
+  });
 
   const { data: notes = [] } = useQuery({
     queryKey: ["ticket-notes", selectedId ?? "_"],
@@ -403,6 +410,19 @@ function TicketsWorkspace() {
     onError: (err) => {
       toast.error(getErrorMessage(err, "Could not update ticket"));
     },
+  });
+  const teamMut = useMutation({
+    mutationFn: (teamId: string | null) =>
+      assignTicketTeam(token!, selectedId!, teamId),
+    onSuccess: async (updated) => {
+      toast.success("Ticket team updated");
+      qc.setQueryData(queryKeys.ticket(updated.id), updated);
+      await qc.invalidateQueries({ queryKey: ["tickets"] });
+      await qc.invalidateQueries({ queryKey: queryKeys.teams });
+      await qc.invalidateQueries({ queryKey: ["ticket-activity", updated.id] });
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update ticket team")),
   });
 
   const noteMut = useMutation({
@@ -733,6 +753,7 @@ function TicketsWorkspace() {
         loading={tLoading}
         canMutate={canMutate}
         users={users}
+        teams={teams}
         notes={notes}
         activity={activity}
         error={ticketError}
@@ -741,6 +762,8 @@ function TicketsWorkspace() {
         onBack={() => setSelectedId(null)}
         updateMutate={(body) => updateMut.mutate(body)}
         updating={updateMut.isPending}
+        teamMutate={(teamId) => teamMut.mutate(teamId)}
+        updatingTeam={teamMut.isPending}
         noteMutate={() => noteMut.mutate()}
         addingNote={noteMut.isPending}
       />
@@ -1044,6 +1067,7 @@ function TicketDetailPanel({
   loading,
   canMutate,
   users,
+  teams,
   notes,
   activity,
   error,
@@ -1052,6 +1076,8 @@ function TicketDetailPanel({
   onBack,
   updateMutate,
   updating,
+  teamMutate,
+  updatingTeam,
   noteMutate,
   addingNote,
 }: {
@@ -1060,6 +1086,7 @@ function TicketDetailPanel({
   loading: boolean;
   canMutate: boolean;
   users: AuthUser[];
+  teams: Team[];
   notes: Ticket["notes"];
   activity: Ticket["activities"];
   error: unknown;
@@ -1072,6 +1099,8 @@ function TicketDetailPanel({
     assigneeId?: string | null;
   }) => void;
   updating: boolean;
+  teamMutate: (teamId: string | null) => void;
+  updatingTeam: boolean;
   noteMutate: () => void;
   addingNote: boolean;
 }) {
@@ -1157,6 +1186,11 @@ function TicketDetailPanel({
                   >
                     {ticket.priority}
                   </Badge>
+                  {ticket.team && (
+                    <Badge tone="accent" className="normal-case">
+                      {ticket.team.name}
+                    </Badge>
+                  )}
                   <TagPills tags={ticket.tags} />
                 </div>
                 <div>
@@ -1253,6 +1287,24 @@ function TicketDetailPanel({
                       ))}
                     </select>
                   </label>
+                  <label className="block text-sm font-medium text-oc-text">
+                    Team queue
+                    <select
+                      value={ticket.teamId ?? ""}
+                      disabled={!canMutate || updatingTeam}
+                      onChange={(event) =>
+                        teamMutate(event.target.value || null)
+                      }
+                      className={fieldControlClass}
+                    >
+                      <option value="">No team</option>
+                      {teams.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </Card>
 
@@ -1271,6 +1323,12 @@ function TicketDetailPanel({
                     <dt className="text-oc-muted">Assignee</dt>
                     <dd className="min-w-0 truncate text-oc-text">
                       {displayUser(ticket.assignee)}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3 px-3 py-3">
+                    <dt className="text-oc-muted">Team</dt>
+                    <dd className="min-w-0 truncate text-oc-text">
+                      {ticket.team?.name || "No team"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-3 px-3 py-3">

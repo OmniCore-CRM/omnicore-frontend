@@ -12,7 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatRelative } from "@/lib/format-time";
-import type { ConversationChannel, Conversation, Message } from "@/types/models";
+import type {
+  ConversationChannel,
+  Conversation,
+  ConversationStatus,
+  Message,
+} from "@/types/models";
 
 function channelLabel(ch?: ConversationChannel) {
   if (!ch) return "Channel";
@@ -22,6 +27,13 @@ function channelLabel(ch?: ConversationChannel) {
 function channelTone(ch?: ConversationChannel) {
   if (ch === "WHATSAPP") return "success" as const;
   if (ch === "EMAIL") return "accent" as const;
+  return "neutral" as const;
+}
+
+function statusTone(status?: ConversationStatus) {
+  if (status === "RESOLVED") return "success" as const;
+  if (status === "PENDING") return "warning" as const;
+  if (status === "SNOOZED") return "accent" as const;
   return "neutral" as const;
 }
 
@@ -91,6 +103,8 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
   const setInboxSearch = useInboxStore((s) => s.setInboxSearch);
   const inboxFilter = useInboxStore((s) => s.inboxFilter);
   const setInboxFilter = useInboxStore((s) => s.setInboxFilter);
+  const inboxStatusFilter = useInboxStore((s) => s.inboxStatusFilter);
+  const setInboxStatusFilter = useInboxStore((s) => s.setInboxStatusFilter);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
   const setSelectedId = useInboxStore((s) => s.setSelectedConversationId);
 
@@ -98,8 +112,9 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
     () => ({
       search: inboxSearch || undefined,
       channel: inboxFilter === "all" ? undefined : inboxFilter,
+      status: inboxStatusFilter === "all" ? undefined : inboxStatusFilter,
     }),
-    [inboxSearch, inboxFilter],
+    [inboxSearch, inboxFilter, inboxStatusFilter],
   );
 
   const { data, isLoading, error } = useQuery({
@@ -148,7 +163,32 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
             </span>
           ) : null}
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Conversation status filter">
+          {(
+            [
+              ["all", "All"],
+              ["OPEN", "Open"],
+              ["PENDING", "Pending"],
+              ["RESOLVED", "Resolved"],
+              ["SNOOZED", "Snoozed"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setInboxStatusFilter(key)}
+              className={cn(
+                "min-h-8 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
+                inboxStatusFilter === key
+                  ? "bg-oc-panel text-oc-accent-2 ring-1 ring-violet-500/35"
+                  : "text-oc-muted hover:bg-oc-panel hover:text-oc-text",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Conversation channel filter">
           {(
             [
               ["all", "All"],
@@ -207,8 +247,9 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
               No conversations here
             </p>
             <p className="mt-1 text-sm text-oc-muted">
-              Website widget and WhatsApp conversations will appear here when
-              customers message you.
+              {inboxFilter !== "all" || inboxStatusFilter !== "all" || inboxSearch
+                ? "No conversations match the current filters."
+                : "Website widget and WhatsApp conversations will appear here when customers message you."}
             </p>
           </div>
         )}
@@ -276,6 +317,7 @@ function ConversationRow({
           <Badge tone={channelTone(c.channel)} className="normal-case">
             {channelLabel(c.channel)}
           </Badge>
+          <Badge tone={statusTone(c.status)}>{c.status ?? "OPEN"}</Badge>
           {c.assignee && (
             <span className="truncate text-xs text-oc-faint">
               {c.assignee.displayName || c.assignee.email}

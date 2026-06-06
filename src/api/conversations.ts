@@ -1,7 +1,11 @@
 import { apiFetch } from "./client";
 import { normalizePaginated } from "./normalize";
 import type { Paginated } from "@/types/api";
-import type { Conversation, Message } from "@/types/models";
+import type {
+  Conversation,
+  ConversationStatus,
+  Message,
+} from "@/types/models";
 
 export interface ConversationListParams {
   search?: string;
@@ -41,8 +45,7 @@ export async function getConversation(
 export async function patchConversation(
   token: string,
   id: string,
-  // Conversation assignment/status APIs are planned for future CRM workflow modules.
-  body: Partial<Pick<Conversation, "assigneeId">>,
+  body: { status: ConversationStatus },
 ): Promise<Conversation> {
   return apiFetch<Conversation>(`/conversations/${id}`, {
     method: "PATCH",

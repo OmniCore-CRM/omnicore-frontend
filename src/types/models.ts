@@ -158,6 +158,7 @@ export interface Conversation {
   latestAgentReply?: Message | null;
   recentMessages?: Message[];
   messages?: Message[];
+  activities?: ConversationActivity[];
   tags?: Tag[];
   unreadCount?: number;
 
@@ -166,6 +167,19 @@ export interface Conversation {
 
   updatedAt?: string;
   createdAt?: string;
+}
+
+export interface ConversationActivity {
+  id: string;
+  conversationId: string;
+  actorId: string;
+  actor?: AuthUser;
+  action: "STATUS_CHANGED";
+  metadata?: {
+    from?: ConversationStatus;
+    to?: ConversationStatus;
+  } | null;
+  createdAt: string;
 }
 
 // Backend-aligned sender types.

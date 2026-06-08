@@ -1,17 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listConversations, listMessages } from "@/api/conversations";
+import { listTags } from "@/api/tags";
+import { listTeams } from "@/api/teams";
 import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
 import { useInboxStore } from "@/stores/inbox-store";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatRelative } from "@/lib/format-time";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type {
   ConversationChannel,
   Conversation,
@@ -105,22 +109,45 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
   const setInboxFilter = useInboxStore((s) => s.setInboxFilter);
   const inboxStatusFilter = useInboxStore((s) => s.inboxStatusFilter);
   const setInboxStatusFilter = useInboxStore((s) => s.setInboxStatusFilter);
+  const inboxTeamFilter = useInboxStore((s) => s.inboxTeamFilter);
+  const setInboxTeamFilter = useInboxStore((s) => s.setInboxTeamFilter);
+  const inboxTagFilter = useInboxStore((s) => s.inboxTagFilter);
+  const setInboxTagFilter = useInboxStore((s) => s.setInboxTagFilter);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
   const setSelectedId = useInboxStore((s) => s.setSelectedConversationId);
+  const debouncedSearch = useDebouncedValue(inboxSearch);
+  const [cursor, setCursor] = useState<string>();
+  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+
+  const resetPagination = () => {
+    setCursor(undefined);
+    setCursorHistory([]);
+  };
 
   const apiParams = useMemo(
     () => ({
-      search: inboxSearch || undefined,
+      search: debouncedSearch || undefined,
       channel: inboxFilter === "all" ? undefined : inboxFilter,
       status: inboxStatusFilter === "all" ? undefined : inboxStatusFilter,
+      teamId: inboxTeamFilter || undefined,
+      tagId: inboxTagFilter || undefined,
+      cursor,
+      limit: 30,
     }),
-    [inboxSearch, inboxFilter, inboxStatusFilter],
+    [
+      cursor,
+      debouncedSearch,
+      inboxFilter,
+      inboxStatusFilter,
+      inboxTagFilter,
+      inboxTeamFilter,
+    ],
   );
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.conversations(
       Object.fromEntries(
-        Object.entries(apiParams).map(([k, v]) => [k, v ?? ""]),
+        Object.entries(apiParams).map(([k, v]) => [k, String(v ?? "")]),
       ),
     ),
     queryFn: () => listConversations(token!, apiParams),
@@ -138,6 +165,16 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
       });
       return { ...page, items };
     },
+  });
+  const { data: teams = [] } = useQuery({
+    queryKey: queryKeys.teams,
+    queryFn: () => listTeams(token!),
+    enabled: !!token,
+  });
+  const { data: tags = [] } = useQuery({
+    queryKey: queryKeys.tags(),
+    queryFn: () => listTags(token!),
+    enabled: !!token,
   });
 
   return (
@@ -176,7 +213,10 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
             <button
               key={key}
               type="button"
-              onClick={() => setInboxStatusFilter(key)}
+              onClick={() => {
+                setInboxStatusFilter(key);
+                resetPagination();
+              }}
               className={cn(
                 "min-h-8 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
                 inboxStatusFilter === key
@@ -200,7 +240,10 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
             <button
               key={key}
               type="button"
-              onClick={() => setInboxFilter(key)}
+              onClick={() => {
+                setInboxFilter(key);
+                resetPagination();
+              }}
               className={cn(
                 "min-h-8 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
                 inboxFilter === key
@@ -214,10 +257,47 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
         </div>
         <Input
           value={inboxSearch}
-          onChange={(e) => setInboxSearch(e.target.value)}
+          onChange={(e) => {
+            setInboxSearch(e.target.value);
+            resetPagination();
+          }}
           placeholder="Search conversations…"
           className="mt-3 h-10 text-sm"
         />
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <label className="min-w-0 text-xs font-medium text-oc-faint">
+            Team
+            <select
+              value={inboxTeamFilter}
+              onChange={(event) => {
+                setInboxTeamFilter(event.target.value);
+                resetPagination();
+              }}
+              className="mt-1 h-10 w-full min-w-0 rounded-xl border border-oc-border bg-oc-panel px-2 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+            >
+              <option value="">All teams</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-0 text-xs font-medium text-oc-faint">
+            Tag
+            <select
+              value={inboxTagFilter}
+              onChange={(event) => {
+                setInboxTagFilter(event.target.value);
+                resetPagination();
+              }}
+              className="mt-1 h-10 w-full min-w-0 rounded-xl border border-oc-border bg-oc-panel px-2 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+            >
+              <option value="">All tags</option>
+              {tags.map((tag) => (
+                <option key={tag.id} value={tag.id}>{tag.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -254,6 +334,35 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
           </div>
         )}
       </div>
+      {(cursorHistory.length > 0 || data?.nextCursor) && (
+        <div className="flex shrink-0 items-center justify-between border-t border-oc-border p-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={cursorHistory.length === 0}
+            onClick={() => {
+              const history = [...cursorHistory];
+              setCursor(history.pop() || undefined);
+              setCursorHistory(history);
+            }}
+            className="h-9 px-3"
+          >
+            Previous
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!data?.nextCursor}
+            onClick={() => {
+              setCursorHistory((history) => [...history, cursor ?? ""]);
+              setCursor(data?.nextCursor ?? undefined);
+            }}
+            className="h-9 px-3"
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

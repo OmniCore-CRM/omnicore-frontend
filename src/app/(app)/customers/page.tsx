@@ -14,6 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { getCustomer, listCustomers } from "@/api/customers";
+import { listTags } from "@/api/tags";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
@@ -26,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TagEditor, TagPills } from "@/features/tags/tag-editor";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type {
   Customer,
   CustomerConversationSummary,
@@ -88,12 +90,41 @@ const timelineIconClass = (type: CustomerTimelineItem["type"]) => {
   return "bg-oc-panel text-oc-muted";
 };
 
+const filterControlClass =
+  "mt-1 h-10 w-full min-w-0 rounded-xl border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
+
+const daysAgo = (days: string) =>
+  days
+    ? new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000).toISOString()
+    : undefined;
+
 export default function CustomersPage() {
   const token = useAuthStore((s) => s.accessToken);
   const [q, setQ] = useState("");
+  const debouncedSearch = useDebouncedValue(q);
+  const [tagId, setTagId] = useState("");
+  const [createdWithin, setCreatedWithin] = useState("");
+  const [activeWithin, setActiveWithin] = useState("");
+  const [cursor, setCursor] = useState<string>();
+  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const params = useMemo(() => ({ search: q || undefined, limit: 50 }), [q]);
+  const resetPagination = () => {
+    setCursor(undefined);
+    setCursorHistory([]);
+  };
+
+  const params = useMemo(
+    () => ({
+      search: debouncedSearch || undefined,
+      tagId: tagId || undefined,
+      createdFrom: daysAgo(createdWithin),
+      lastActivityFrom: daysAgo(activeWithin),
+      cursor,
+      limit: 30,
+    }),
+    [activeWithin, createdWithin, cursor, debouncedSearch, tagId],
+  );
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.customers(
@@ -119,6 +150,11 @@ export default function CustomersPage() {
   });
 
   const customers = data?.items ?? [];
+  const { data: tags = [] } = useQuery({
+    queryKey: queryKeys.tags(),
+    queryFn: () => listTags(token!),
+    enabled: !!token,
+  });
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden bg-oc-bg">
@@ -148,11 +184,64 @@ export default function CustomersPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-oc-faint" />
             <Input
               value={q}
-              onChange={(event) => setQ(event.target.value)}
+              onChange={(event) => {
+                setQ(event.target.value);
+                resetPagination();
+              }}
               placeholder="Search name, email, or phone..."
               className="h-11 pl-10"
             />
           </label>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
+            <label className="min-w-0 text-xs font-semibold text-oc-faint">
+              Tag
+              <select
+                value={tagId}
+                onChange={(event) => {
+                  setTagId(event.target.value);
+                  resetPagination();
+                }}
+                className={filterControlClass}
+              >
+                <option value="">All tags</option>
+                {tags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>{tag.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="min-w-0 text-xs font-semibold text-oc-faint">
+              Created
+              <select
+                value={createdWithin}
+                onChange={(event) => {
+                  setCreatedWithin(event.target.value);
+                  resetPagination();
+                }}
+                className={filterControlClass}
+              >
+                <option value="">Any time</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </label>
+            <label className="min-w-0 text-xs font-semibold text-oc-faint">
+              Activity
+              <select
+                value={activeWithin}
+                onChange={(event) => {
+                  setActiveWithin(event.target.value);
+                  resetPagination();
+                }}
+                className={filterControlClass}
+              >
+                <option value="">Any time</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -189,6 +278,33 @@ export default function CustomersPage() {
             />
           ))}
         </div>
+        {(cursorHistory.length > 0 || data?.nextCursor) && (
+          <div className="flex shrink-0 items-center justify-between border-t border-oc-border p-3">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={cursorHistory.length === 0}
+              onClick={() => {
+                const history = [...cursorHistory];
+                setCursor(history.pop() || undefined);
+                setCursorHistory(history);
+              }}
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!data?.nextCursor}
+              onClick={() => {
+                setCursorHistory((history) => [...history, cursor ?? ""]);
+                setCursor(data?.nextCursor ?? undefined);
+              }}
+            >
+              Next
+            </Button>
+          </div>
+        )}
       </section>
 
       <section

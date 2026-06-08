@@ -5,6 +5,11 @@ import type { Customer } from "@/types/models";
 
 export interface CustomerListParams {
   search?: string;
+  tagId?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  lastActivityFrom?: string;
+  lastActivityTo?: string;
   cursor?: string;
   limit?: number;
 }
@@ -16,6 +21,11 @@ export async function listCustomers(
 ): Promise<Paginated<Customer>> {
   const q = new URLSearchParams();
   if (params.search) q.set("search", params.search);
+  if (params.tagId) q.set("tagId", params.tagId);
+  if (params.createdFrom) q.set("createdFrom", params.createdFrom);
+  if (params.createdTo) q.set("createdTo", params.createdTo);
+  if (params.lastActivityFrom) q.set("lastActivityFrom", params.lastActivityFrom);
+  if (params.lastActivityTo) q.set("lastActivityTo", params.lastActivityTo);
   if (params.cursor) q.set("cursor", params.cursor);
   if (params.limit) q.set("limit", String(params.limit));
   const qs = q.toString();

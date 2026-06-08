@@ -13,6 +13,8 @@ export interface TicketListParams {
   status?: string;
   priority?: string;
   assigneeId?: string;
+  teamId?: string;
+  tagId?: string;
   search?: string;
   cursor?: string;
   limit?: number;
@@ -26,6 +28,8 @@ export async function listTickets(
   if (params.status) q.set("status", params.status);
   if (params.priority) q.set("priority", params.priority);
   if (params.assigneeId) q.set("assigneeId", params.assigneeId);
+  if (params.teamId) q.set("teamId", params.teamId);
+  if (params.tagId) q.set("tagId", params.tagId);
   if (params.search) q.set("search", params.search);
   if (params.cursor) q.set("cursor", params.cursor);
   if (params.limit) q.set("limit", String(params.limit));

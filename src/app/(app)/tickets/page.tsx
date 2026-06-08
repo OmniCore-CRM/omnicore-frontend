@@ -22,6 +22,7 @@ import {
 } from "@/api/tickets";
 import { listUsers } from "@/api/users";
 import { assignTicketTeam, listTeams } from "@/api/teams";
+import { listTags } from "@/api/tags";
 import { downloadAttachment, uploadTicketAttachment } from "@/api/attachments";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
@@ -37,6 +38,7 @@ import { TagEditor, TagPills } from "@/features/tags/tag-editor";
 import { AttachmentList } from "@/features/attachments/attachment-list";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type {
   AuthUser,
   Attachment,
@@ -277,8 +279,13 @@ function TicketsWorkspace() {
   const searchParams = useSearchParams();
   const initialTicketId = searchParams.get("ticketId");
   const [q, setQ] = useState("");
+  const debouncedSearch = useDebouncedValue(q);
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [priority, setPriority] = useState<TicketPriority | "">("");
+  const [teamId, setTeamId] = useState("");
+  const [tagId, setTagId] = useState("");
+  const [cursor, setCursor] = useState<string>();
+  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialTicketId,
   );
@@ -296,14 +303,22 @@ function TicketsWorkspace() {
   >(null);
   const canMutate = user?.role !== "VIEWER";
 
+  const resetPagination = () => {
+    setCursor(undefined);
+    setCursorHistory([]);
+  };
+
   const params = useMemo(
     () => ({
-      search: q || undefined,
+      search: debouncedSearch || undefined,
       status: status || undefined,
       priority: priority || undefined,
-      limit: 50,
+      teamId: teamId || undefined,
+      tagId: tagId || undefined,
+      cursor,
+      limit: 30,
     }),
-    [priority, q, status],
+    [cursor, debouncedSearch, priority, status, tagId, teamId],
   );
 
   const ticketListKey = queryKeys.tickets(
@@ -361,6 +376,11 @@ function TicketsWorkspace() {
   const { data: teams = [] } = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
+    enabled: !!token,
+  });
+  const { data: tags = [] } = useQuery({
+    queryKey: queryKeys.tags(),
+    queryFn: () => listTags(token!),
     enabled: !!token,
   });
 
@@ -515,14 +535,17 @@ function TicketsWorkspace() {
 
         <Card className="mb-5 overflow-hidden p-4 md:p-5">
           <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
-            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(150px,180px)_minmax(150px,180px)]">
+            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint sm:col-span-2 xl:col-span-1">
                 Search
                 <span className="relative mt-2 block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-oc-faint" />
                   <Input
                     value={q}
-                    onChange={(e) => setQ(e.target.value)}
+                    onChange={(e) => {
+                      setQ(e.target.value);
+                      resetPagination();
+                    }}
                     placeholder="Search tickets, customers, or IDs..."
                     className="h-11 pl-10"
                     aria-label="Search tickets"
@@ -533,9 +556,10 @@ function TicketsWorkspace() {
                 Status
                 <select
                   value={status}
-                  onChange={(e) =>
-                    setStatus(e.target.value as TicketStatus | "")
-                  }
+                  onChange={(e) => {
+                    setStatus(e.target.value as TicketStatus | "");
+                    resetPagination();
+                  }}
                   className={fieldControlClass}
                   aria-label="Filter by status"
                 >
@@ -551,9 +575,10 @@ function TicketsWorkspace() {
                 Priority
                 <select
                   value={priority}
-                  onChange={(e) =>
-                    setPriority(e.target.value as TicketPriority | "")
-                  }
+                  onChange={(e) => {
+                    setPriority(e.target.value as TicketPriority | "");
+                    resetPagination();
+                  }}
                   className={fieldControlClass}
                   aria-label="Filter by priority"
                 >
@@ -562,6 +587,40 @@ function TicketsWorkspace() {
                     <option key={p} value={p}>
                       {p}
                     </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
+                Team
+                <select
+                  value={teamId}
+                  onChange={(event) => {
+                    setTeamId(event.target.value);
+                    resetPagination();
+                  }}
+                  className={fieldControlClass}
+                  aria-label="Filter by team"
+                >
+                  <option value="">All teams</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
+                Tag
+                <select
+                  value={tagId}
+                  onChange={(event) => {
+                    setTagId(event.target.value);
+                    resetPagination();
+                  }}
+                  className={fieldControlClass}
+                  aria-label="Filter by tag"
+                >
+                  <option value="">All tags</option>
+                  {tags.map((tag) => (
+                    <option key={tag.id} value={tag.id}>{tag.name}</option>
                   ))}
                 </select>
               </label>
@@ -719,13 +778,15 @@ function TicketsWorkspace() {
                   <tr>
                     <td className="px-5 py-16" colSpan={7}>
                       <EmptyTicketsState
-                        filtered={Boolean(q || status || priority)}
+                        filtered={Boolean(q || status || priority || teamId || tagId)}
                         canCreate={canMutate}
                         onCreate={() => setCreating(true)}
                         onClear={() => {
                           setQ("");
                           setStatus("");
                           setPriority("");
+                          setTeamId("");
+                          setTagId("");
                         }}
                       />
                     </td>
@@ -755,13 +816,15 @@ function TicketsWorkspace() {
             )}
             {!isLoading && !error && tickets.length === 0 && (
               <EmptyTicketsState
-                filtered={Boolean(q || status || priority)}
+                filtered={Boolean(q || status || priority || teamId || tagId)}
                 canCreate={canMutate}
                 onCreate={() => setCreating(true)}
                 onClear={() => {
                   setQ("");
                   setStatus("");
                   setPriority("");
+                  setTeamId("");
+                  setTagId("");
                 }}
               />
             )}
@@ -774,6 +837,36 @@ function TicketsWorkspace() {
               />
             ))}
           </div>
+          {(cursorHistory.length > 0 || data?.nextCursor) && (
+            <div className="flex items-center justify-between border-t border-oc-border px-4 py-3">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={cursorHistory.length === 0}
+                onClick={() => {
+                  const history = [...cursorHistory];
+                  setCursor(history.pop() || undefined);
+                  setCursorHistory(history);
+                }}
+              >
+                Previous
+              </Button>
+              <span className="text-xs text-oc-muted">
+                {tickets.length} tickets on this page
+              </span>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!data?.nextCursor}
+                onClick={() => {
+                  setCursorHistory((history) => [...history, cursor ?? ""]);
+                  setCursor(data?.nextCursor ?? undefined);
+                }}
+              >
+                Next
+              </Button>
+            </div>
+          )}
         </Card>
       </section>
 

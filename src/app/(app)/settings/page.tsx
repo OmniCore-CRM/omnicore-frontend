@@ -26,9 +26,11 @@ import {
   listTags,
   updateTag,
 } from "@/api/tags";
+import { listAuditLogs } from "@/api/audit-logs";
+import { listUsers } from "@/api/users";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
-import type { SavedReply, Tag } from "@/types/models";
+import type { AuditLog, AuthUser, SavedReply, Tag } from "@/types/models";
 
 const tabs = [
   "Profile",
@@ -38,8 +40,93 @@ const tabs = [
   "Widget",
   "Saved replies",
   "Tags",
+  "Audit logs",
   "Notifications",
 ] as const;
+
+const auditActions = [
+  "USER_LOGIN",
+  "TICKET_CREATED",
+  "TICKET_UPDATED",
+  "TICKET_STATUS_CHANGED",
+  "TICKET_PRIORITY_CHANGED",
+  "TICKET_ASSIGNED",
+  "TICKET_UNASSIGNED",
+  "TICKET_TEAM_ASSIGNED",
+  "TICKET_TEAM_UNASSIGNED",
+  "TICKET_NOTE_ADDED",
+  "CONVERSATION_STATUS_CHANGED",
+  "CONVERSATION_TEAM_ASSIGNED",
+  "CONVERSATION_TEAM_UNASSIGNED",
+  "TAG_CREATED",
+  "TAG_UPDATED",
+  "TAG_DELETED",
+  "TAG_ATTACHED",
+  "TAG_REMOVED",
+  "TEAM_CREATED",
+  "TEAM_UPDATED",
+  "TEAM_DELETED",
+  "TEAM_MEMBER_ADDED",
+  "TEAM_MEMBER_REMOVED",
+  "SAVED_REPLY_CREATED",
+  "SAVED_REPLY_UPDATED",
+  "SAVED_REPLY_DELETED",
+  "ATTACHMENT_UPLOADED",
+  "ATTACHMENT_DOWNLOADED",
+];
+
+const auditEntityTypes = [
+  "USER",
+  "TICKET",
+  "CONVERSATION",
+  "CUSTOMER",
+  "TAG",
+  "TEAM",
+  "SAVED_REPLY",
+  "ATTACHMENT",
+];
+
+const settingsSelectClass =
+  "mt-2 h-11 w-full min-w-0 rounded-xl border border-oc-border bg-oc-panel px-3 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
+
+const formatAuditLabel = (value: string) =>
+  value
+    .split("_")
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+
+const displayActor = (actor?: AuthUser | null) =>
+  actor?.displayName ||
+  [actor?.firstName, actor?.lastName].filter(Boolean).join(" ") ||
+  actor?.email ||
+  "System";
+
+const formatAuditTime = (value?: string) => {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+};
+
+const summarizeMetadata = (metadata?: Record<string, unknown> | null) => {
+  if (!metadata) return "No metadata";
+
+  const entries = Object.entries(metadata)
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .slice(0, 3);
+
+  if (entries.length === 0) return "No metadata";
+
+  return entries
+    .map(([key, value]) => {
+      const displayValue = Array.isArray(value)
+        ? value.join(", ")
+        : String(value);
+      return `${key}: ${displayValue}`;
+    })
+    .join(" · ");
+};
 
 const parseDomains = (value: string) =>
   value
@@ -386,6 +473,10 @@ export default function SettingsPage() {
             />
           )}
 
+          {tab === "Audit logs" && (
+            <AuditLogsSettings token={token ?? ""} />
+          )}
+
           {tab === "Notifications" && (
             <Card className="space-y-3 p-5">
               <h2 className="text-sm font-semibold text-oc-text">
@@ -398,6 +489,248 @@ export default function SettingsPage() {
             </Card>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AuditLogsSettings({ token }: { token: string }) {
+  const [action, setAction] = useState("");
+  const [entityType, setEntityType] = useState("");
+  const [actorId, setActorId] = useState("");
+  const [cursor, setCursor] = useState<string>();
+  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+
+  const resetPagination = () => {
+    setCursor(undefined);
+    setCursorHistory([]);
+  };
+
+  const params = useMemo(
+    () => ({
+      action: action || undefined,
+      entityType: entityType || undefined,
+      actorId: actorId || undefined,
+      cursor,
+      limit: 30,
+    }),
+    [action, actorId, cursor, entityType],
+  );
+
+  const auditQuery = useQuery({
+    queryKey: queryKeys.auditLogs(
+      Object.fromEntries(
+        Object.entries(params).map(([key, value]) => [key, String(value ?? "")]),
+      ),
+    ),
+    queryFn: () => listAuditLogs(token, params),
+    enabled: Boolean(token),
+  });
+
+  const usersQuery = useQuery({
+    queryKey: ["users"],
+    queryFn: () => listUsers(token),
+    enabled: Boolean(token),
+  });
+
+  const logs = auditQuery.data?.items ?? [];
+  const users = usersQuery.data ?? [];
+
+  return (
+    <Card className="space-y-5 p-5">
+      <div>
+        <h2 className="text-sm font-semibold text-oc-text">Audit logs</h2>
+        <p className="mt-1 text-sm leading-6 text-oc-muted">
+          Review tenant-scoped records of important account, ticket, team, tag,
+          saved reply, conversation, and attachment actions.
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <label className="text-xs font-semibold uppercase text-oc-faint">
+          Action
+          <select
+            value={action}
+            onChange={(event) => {
+              setAction(event.target.value);
+              resetPagination();
+            }}
+            className={settingsSelectClass}
+          >
+            <option value="">All actions</option>
+            {auditActions.map((item) => (
+              <option key={item} value={item}>
+                {formatAuditLabel(item)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-xs font-semibold uppercase text-oc-faint">
+          Entity
+          <select
+            value={entityType}
+            onChange={(event) => {
+              setEntityType(event.target.value);
+              resetPagination();
+            }}
+            className={settingsSelectClass}
+          >
+            <option value="">All entities</option>
+            {auditEntityTypes.map((item) => (
+              <option key={item} value={item}>
+                {formatAuditLabel(item)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-xs font-semibold uppercase text-oc-faint">
+          Actor
+          <select
+            value={actorId}
+            onChange={(event) => {
+              setActorId(event.target.value);
+              resetPagination();
+            }}
+            className={settingsSelectClass}
+          >
+            <option value="">All actors</option>
+            {users.map((item) => (
+              <option key={item.id} value={item.id}>
+                {displayActor(item)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {auditQuery.isLoading && (
+        <p className="text-sm text-oc-muted">Loading audit logs...</p>
+      )}
+
+      {auditQuery.error && (
+        <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-200">
+          {getErrorMessage(auditQuery.error, "Could not load audit logs")}
+        </div>
+      )}
+
+      {!auditQuery.isLoading && !auditQuery.error && logs.length === 0 && (
+        <div className="rounded-lg border border-dashed border-oc-border bg-oc-bg/40 p-5 text-sm text-oc-muted">
+          No audit logs match the current filters.
+        </div>
+      )}
+
+      {logs.length > 0 && (
+        <>
+          <div className="hidden overflow-hidden rounded-xl border border-oc-border md:block">
+            <table className="w-full table-fixed text-left text-sm">
+              <thead className="border-b border-oc-border bg-oc-bg/70 text-xs uppercase text-oc-faint">
+                <tr>
+                  <th className="w-[22%] px-4 py-3">Action</th>
+                  <th className="w-[18%] px-4 py-3">Actor</th>
+                  <th className="w-[16%] px-4 py-3">Entity</th>
+                  <th className="w-[26%] px-4 py-3">Metadata</th>
+                  <th className="w-[18%] px-4 py-3">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <AuditLogRow key={log.id} log={log} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="space-y-3 md:hidden">
+            {logs.map((log) => (
+              <AuditLogCard key={log.id} log={log} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {(cursorHistory.length > 0 || auditQuery.data?.nextCursor) && (
+        <div className="flex items-center justify-between border-t border-oc-border pt-4">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={cursorHistory.length === 0}
+            onClick={() => {
+              const history = [...cursorHistory];
+              setCursor(history.pop() || undefined);
+              setCursorHistory(history);
+            }}
+          >
+            Previous
+          </Button>
+          <span className="text-xs text-oc-muted">
+            {logs.length} logs on this page
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!auditQuery.data?.nextCursor}
+            onClick={() => {
+              setCursorHistory((history) => [...history, cursor ?? ""]);
+              setCursor(auditQuery.data?.nextCursor ?? undefined);
+            }}
+          >
+            Next
+          </Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function AuditLogRow({ log }: { log: AuditLog }) {
+  return (
+    <tr className="border-b border-oc-border/60 last:border-b-0">
+      <td className="px-4 py-4">
+        <span className="font-medium text-oc-text">
+          {formatAuditLabel(log.action)}
+        </span>
+      </td>
+      <td className="px-4 py-4 text-oc-muted">{displayActor(log.actor)}</td>
+      <td className="px-4 py-4">
+        <p className="font-medium text-oc-text">
+          {formatAuditLabel(log.entityType)}
+        </p>
+        <p className="truncate font-mono text-xs text-oc-faint">
+          {log.entityId}
+        </p>
+      </td>
+      <td className="px-4 py-4 text-oc-muted">
+        <p className="line-clamp-2">{summarizeMetadata(log.metadata)}</p>
+      </td>
+      <td className="px-4 py-4 text-oc-muted">
+        {formatAuditTime(log.createdAt)}
+      </td>
+    </tr>
+  );
+}
+
+function AuditLogCard({ log }: { log: AuditLog }) {
+  return (
+    <div className="rounded-lg border border-oc-border bg-oc-bg/45 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-oc-text">
+            {formatAuditLabel(log.action)}
+          </p>
+          <p className="mt-1 text-xs text-oc-muted">{displayActor(log.actor)}</p>
+        </div>
+        <span className="shrink-0 rounded-full border border-oc-border bg-oc-panel px-2.5 py-1 text-xs text-oc-muted">
+          {formatAuditLabel(log.entityType)}
+        </span>
+      </div>
+      <p className="mt-3 line-clamp-2 text-sm text-oc-muted">
+        {summarizeMetadata(log.metadata)}
+      </p>
+      <div className="mt-3 flex flex-col gap-1 text-xs text-oc-faint">
+        <span className="truncate font-mono">{log.entityId}</span>
+        <span>{formatAuditTime(log.createdAt)}</span>
       </div>
     </div>
   );

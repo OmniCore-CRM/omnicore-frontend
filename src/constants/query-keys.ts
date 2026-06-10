@@ -16,4 +16,6 @@ export const queryKeys = {
     ["tags", params ?? {}] as const,
   analyticsOverview: ["analytics", "overview"] as const,
   teams: ["teams"] as const,
+  auditLogs: (params?: Record<string, string | undefined>) =>
+    ["audit-logs", params ?? {}] as const,
 };

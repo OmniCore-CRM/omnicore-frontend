@@ -271,6 +271,18 @@ export interface Tag {
   updatedAt?: string;
 }
 
+export interface AuditLog {
+  id: string;
+  companyId: string;
+  actorId?: string | null;
+  actor?: AuthUser | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type TicketStatus =
   | "OPEN"

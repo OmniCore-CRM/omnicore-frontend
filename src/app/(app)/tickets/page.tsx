@@ -43,6 +43,7 @@ import type {
   AuthUser,
   Attachment,
   Message,
+  SlaStatus,
   Ticket,
   TicketActivity,
   TicketPriority,
@@ -90,6 +91,7 @@ const ticketPriorities: TicketPriority[] = [
   "HIGH",
   "URGENT",
 ];
+const slaStatuses: SlaStatus[] = ["ON_TRACK", "AT_RISK", "BREACHED", "PAUSED"];
 
 function priorityTone(p: Ticket["priority"]) {
   if (p === "URGENT") return "danger" as const;
@@ -103,6 +105,13 @@ function statusTone(s: Ticket["status"]) {
   if (s === "ESCALATED") return "danger" as const;
   if (s === "PENDING") return "warning" as const;
   return "neutral" as const;
+}
+
+function slaTone(status: SlaStatus) {
+  if (status === "BREACHED") return "danger" as const;
+  if (status === "AT_RISK") return "warning" as const;
+  if (status === "PAUSED") return "accent" as const;
+  return "success" as const;
 }
 
 const displayUser = (user?: AuthUser | null) =>
@@ -153,6 +162,8 @@ const formatActivityTitle = (item: TicketActivity) => {
   if (item.action === "MESSAGE_RECEIVED_ON_WIDGET") {
     return "Widget message received";
   }
+  if (item.action === "SLA_BREACHED") return "SLA breached";
+  if (item.action === "SLA_UPDATED") return "SLA timing updated";
 
   return formatActivityAction(item.action);
 };
@@ -282,6 +293,7 @@ function TicketsWorkspace() {
   const debouncedSearch = useDebouncedValue(q);
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [priority, setPriority] = useState<TicketPriority | "">("");
+  const [slaStatus, setSlaStatus] = useState<SlaStatus | "">("");
   const [teamId, setTeamId] = useState("");
   const [tagId, setTagId] = useState("");
   const [cursor, setCursor] = useState<string>();
@@ -313,12 +325,13 @@ function TicketsWorkspace() {
       search: debouncedSearch || undefined,
       status: status || undefined,
       priority: priority || undefined,
+      slaStatus: slaStatus || undefined,
       teamId: teamId || undefined,
       tagId: tagId || undefined,
       cursor,
       limit: 30,
     }),
-    [cursor, debouncedSearch, priority, status, tagId, teamId],
+    [cursor, debouncedSearch, priority, slaStatus, status, tagId, teamId],
   );
 
   const ticketListKey = queryKeys.tickets(
@@ -535,7 +548,7 @@ function TicketsWorkspace() {
 
         <Card className="mb-5 overflow-hidden p-4 md:p-5">
           <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
-            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
               <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint sm:col-span-2 xl:col-span-1">
                 Search
                 <span className="relative mt-2 block">
@@ -586,6 +599,25 @@ function TicketsWorkspace() {
                   {ticketPriorities.map((p) => (
                     <option key={p} value={p}>
                       {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
+                SLA
+                <select
+                  value={slaStatus}
+                  onChange={(event) => {
+                    setSlaStatus(event.target.value as SlaStatus | "");
+                    resetPagination();
+                  }}
+                  className={fieldControlClass}
+                  aria-label="Filter by SLA status"
+                >
+                  <option value="">All SLA states</option>
+                  {slaStatuses.map((item) => (
+                    <option key={item} value={item}>
+                      {item.replace("_", " ")}
                     </option>
                   ))}
                 </select>
@@ -778,13 +810,14 @@ function TicketsWorkspace() {
                   <tr>
                     <td className="px-5 py-16" colSpan={7}>
                       <EmptyTicketsState
-                        filtered={Boolean(q || status || priority || teamId || tagId)}
+                        filtered={Boolean(q || status || priority || slaStatus || teamId || tagId)}
                         canCreate={canMutate}
                         onCreate={() => setCreating(true)}
                         onClear={() => {
                           setQ("");
                           setStatus("");
                           setPriority("");
+                          setSlaStatus("");
                           setTeamId("");
                           setTagId("");
                         }}
@@ -816,13 +849,14 @@ function TicketsWorkspace() {
             )}
             {!isLoading && !error && tickets.length === 0 && (
               <EmptyTicketsState
-                filtered={Boolean(q || status || priority || teamId || tagId)}
+                filtered={Boolean(q || status || priority || slaStatus || teamId || tagId)}
                 canCreate={canMutate}
                 onCreate={() => setCreating(true)}
                 onClear={() => {
                   setQ("");
                   setStatus("");
                   setPriority("");
+                  setSlaStatus("");
                   setTeamId("");
                   setTagId("");
                 }}
@@ -934,6 +968,12 @@ function TicketRow({
               ? `${ticket.conversation.channel} conversation`
               : "Manual ticket"}
           </p>
+          <Badge
+            tone={slaTone(ticket.slaStatus)}
+            className="mt-2 px-2 py-0.5 normal-case"
+          >
+            SLA {ticket.slaStatus.replace("_", " ")}
+          </Badge>
         </div>
       </td>
       <td className="px-3 py-5">
@@ -1047,6 +1087,9 @@ function TicketCard({
             {ticket.conversation.channel}
           </Badge>
         )}
+        <Badge tone={slaTone(ticket.slaStatus)} className="normal-case">
+          SLA {ticket.slaStatus.replace("_", " ")}
+        </Badge>
         <TagPills tags={ticket.tags} />
       </div>
       <div className="mt-4 grid gap-2 text-sm text-oc-muted">
@@ -1321,6 +1364,12 @@ function TicketDetailPanel({
                   >
                     {ticket.priority}
                   </Badge>
+                  <Badge
+                    tone={slaTone(ticket.slaStatus)}
+                    className="px-2.5 py-1 normal-case"
+                  >
+                    SLA {ticket.slaStatus.replace("_", " ")}
+                  </Badge>
                   {ticket.team && (
                     <Badge tone="accent" className="normal-case">
                       {ticket.team.name}
@@ -1517,6 +1566,44 @@ function TicketDetailPanel({
                     label="Latest agent reply"
                     message={latestAgentReply}
                     empty="No agent reply has been sent yet."
+                  />
+                </div>
+              </Card>
+
+              <Card className="space-y-4 p-5">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase text-oc-faint">
+                    SLA health
+                  </h3>
+                  <p className="mt-1 text-sm text-oc-muted">
+                    Current first-response and resolution timing for this ticket.
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <MetricItem
+                    label="SLA status"
+                    value={ticket.slaStatus.replace("_", " ")}
+                    icon={<Timer className="h-4 w-4" />}
+                  />
+                  <MetricItem
+                    label="First response due"
+                    value={formatDateTime(ticket.firstResponseDueAt)}
+                    hint={
+                      ticket.firstRespondedAt
+                        ? `Completed ${formatDateTime(ticket.firstRespondedAt)}`
+                        : "Waiting for first agent reply"
+                    }
+                    icon={<Reply className="h-4 w-4" />}
+                  />
+                  <MetricItem
+                    label="Resolution due"
+                    value={formatDateTime(ticket.resolutionDueAt)}
+                    hint={
+                      ticket.resolvedAt
+                        ? `Resolved ${formatDateTime(ticket.resolvedAt)}`
+                        : "Resolution target active"
+                    }
+                    icon={<CheckCircle2 className="h-4 w-4" />}
                   />
                 </div>
               </Card>

@@ -284,6 +284,7 @@ export interface AuditLog {
 }
 
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+export type SlaStatus = "ON_TRACK" | "AT_RISK" | "BREACHED" | "PAUSED";
 export type TicketStatus =
   | "OPEN"
   | "PENDING"
@@ -299,6 +300,11 @@ export interface Ticket {
   description?: string | null;
   status: TicketStatus;
   priority: TicketPriority;
+  firstResponseDueAt?: string | null;
+  resolutionDueAt?: string | null;
+  firstRespondedAt?: string | null;
+  resolvedAt?: string | null;
+  slaStatus: SlaStatus;
 
   assigneeId?: string | null;
   assignee?: AuthUser | null;
@@ -346,6 +352,17 @@ export interface Team {
   updatedAt: string;
 }
 
+export interface SlaPolicy {
+  id: string;
+  name: string;
+  priority: TicketPriority;
+  firstResponseMinutes: number;
+  resolutionMinutes: number;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type TicketActivityAction =
   | "TICKET_CREATED"
   | "TICKET_CREATED_FROM_WIDGET"
@@ -357,7 +374,9 @@ export type TicketActivityAction =
   | "NOTE_ADDED"
   | "MESSAGE_RECEIVED_ON_WIDGET"
   | "TEAM_ASSIGNED"
-  | "TEAM_UNASSIGNED";
+  | "TEAM_UNASSIGNED"
+  | "SLA_UPDATED"
+  | "SLA_BREACHED";
 
 export interface TicketMetrics {
   createdAt: string;

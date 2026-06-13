@@ -28,9 +28,22 @@ import {
 } from "@/api/tags";
 import { listAuditLogs } from "@/api/audit-logs";
 import { listUsers } from "@/api/users";
+import {
+  createSlaPolicy,
+  deleteSlaPolicy,
+  listSlaPolicies,
+  updateSlaPolicy,
+} from "@/api/sla-policies";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
-import type { AuditLog, AuthUser, SavedReply, Tag } from "@/types/models";
+import type {
+  AuditLog,
+  AuthUser,
+  SavedReply,
+  SlaPolicy,
+  Tag,
+  TicketPriority,
+} from "@/types/models";
 
 const tabs = [
   "Profile",
@@ -40,6 +53,7 @@ const tabs = [
   "Widget",
   "Saved replies",
   "Tags",
+  "SLA policies",
   "Audit logs",
   "Notifications",
 ] as const;
@@ -73,6 +87,11 @@ const auditActions = [
   "SAVED_REPLY_DELETED",
   "ATTACHMENT_UPLOADED",
   "ATTACHMENT_DOWNLOADED",
+  "SLA_POLICY_CREATED",
+  "SLA_POLICY_UPDATED",
+  "SLA_POLICY_DELETED",
+  "TICKET_SLA_UPDATED",
+  "TICKET_SLA_BREACHED",
 ];
 
 const auditEntityTypes = [
@@ -84,6 +103,7 @@ const auditEntityTypes = [
   "TEAM",
   "SAVED_REPLY",
   "ATTACHMENT",
+  "SLA_POLICY",
 ];
 
 const settingsSelectClass =
@@ -477,6 +497,15 @@ export default function SettingsPage() {
             <AuditLogsSettings token={token ?? ""} />
           )}
 
+          {tab === "SLA policies" && (
+            <SlaPoliciesSettings
+              token={token ?? ""}
+              canMutate={["OWNER", "ADMIN", "TEAM_LEAD"].includes(
+                user?.role ?? "",
+              )}
+            />
+          )}
+
           {tab === "Notifications" && (
             <Card className="space-y-3 p-5">
               <h2 className="text-sm font-semibold text-oc-text">
@@ -490,6 +519,249 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+const slaPriorities: TicketPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+
+function SlaPoliciesSettings({
+  token,
+  canMutate,
+}: {
+  token: string;
+  canMutate: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [priority, setPriority] = useState<TicketPriority>("MEDIUM");
+  const [firstResponseMinutes, setFirstResponseMinutes] = useState("60");
+  const [resolutionMinutes, setResolutionMinutes] = useState("480");
+  const [enabled, setEnabled] = useState(true);
+
+  const policiesQuery = useQuery({
+    queryKey: queryKeys.slaPolicies,
+    queryFn: () => listSlaPolicies(token),
+    enabled: Boolean(token),
+  });
+  const policies = policiesQuery.data ?? [];
+
+  const resetForm = () => {
+    setEditingId(null);
+    setName("");
+    setPriority("MEDIUM");
+    setFirstResponseMinutes("60");
+    setResolutionMinutes("480");
+    setEnabled(true);
+  };
+
+  const payload = () => ({
+    name: name.trim(),
+    priority,
+    firstResponseMinutes: Number(firstResponseMinutes),
+    resolutionMinutes: Number(resolutionMinutes),
+    enabled,
+  });
+
+  const refresh = async () => {
+    resetForm();
+    await queryClient.invalidateQueries({ queryKey: queryKeys.slaPolicies });
+  };
+
+  const createMutation = useMutation({
+    mutationFn: () => createSlaPolicy(token, payload()),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("SLA policy created");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not create SLA policy")),
+  });
+  const updateMutation = useMutation({
+    mutationFn: () => updateSlaPolicy(token, editingId!, payload()),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("SLA policy updated");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update SLA policy")),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (policyId: string) => deleteSlaPolicy(token, policyId),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("SLA policy deleted");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not delete SLA policy")),
+  });
+
+  const busy =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    deleteMutation.isPending;
+
+  const startEdit = (policy: SlaPolicy) => {
+    setEditingId(policy.id);
+    setName(policy.name);
+    setPriority(policy.priority);
+    setFirstResponseMinutes(String(policy.firstResponseMinutes));
+    setResolutionMinutes(String(policy.resolutionMinutes));
+    setEnabled(policy.enabled);
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canMutate || !name.trim()) return;
+    if (editingId) updateMutation.mutate();
+    else createMutation.mutate();
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-oc-text">SLA policies</h2>
+          <p className="mt-1 text-sm leading-6 text-oc-muted">
+            Define first-response and resolution targets by ticket priority.
+            Enabling a policy replaces the active policy for that priority.
+          </p>
+        </div>
+        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+          <label className="text-xs font-semibold uppercase text-oc-faint sm:col-span-2">
+            Policy name
+            <Input
+              className="mt-2"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Standard medium priority"
+              disabled={!canMutate || busy}
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Priority
+            <select
+              className={settingsSelectClass}
+              value={priority}
+              onChange={(event) =>
+                setPriority(event.target.value as TicketPriority)
+              }
+              disabled={!canMutate || busy}
+            >
+              {slaPriorities.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-3 self-end rounded-xl border border-oc-border bg-oc-panel px-3 py-3 text-sm text-oc-text">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => setEnabled(event.target.checked)}
+              disabled={!canMutate || busy}
+            />
+            Enabled
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            First response minutes
+            <Input
+              className="mt-2"
+              type="number"
+              min={1}
+              value={firstResponseMinutes}
+              onChange={(event) => setFirstResponseMinutes(event.target.value)}
+              disabled={!canMutate || busy}
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Resolution minutes
+            <Input
+              className="mt-2"
+              type="number"
+              min={1}
+              value={resolutionMinutes}
+              onChange={(event) => setResolutionMinutes(event.target.value)}
+              disabled={!canMutate || busy}
+            />
+          </label>
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <Button type="submit" disabled={!canMutate || busy || !name.trim()}>
+              {editingId ? "Save policy" : "Create policy"}
+            </Button>
+            {editingId && (
+              <Button type="button" variant="secondary" onClick={resetForm}>
+                Cancel edit
+              </Button>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <h3 className="text-sm font-semibold text-oc-text">Policy matrix</h3>
+        {policiesQuery.isLoading && (
+          <p className="text-sm text-oc-muted">Loading SLA policies...</p>
+        )}
+        {policiesQuery.error && (
+          <p className="text-sm text-red-200">
+            {getErrorMessage(policiesQuery.error, "Could not load SLA policies")}
+          </p>
+        )}
+        {!policiesQuery.isLoading && policies.length === 0 && (
+          <p className="rounded-lg border border-dashed border-oc-border p-4 text-sm text-oc-muted">
+            No SLA policies yet.
+          </p>
+        )}
+        <div className="space-y-3">
+          {policies.map((policy) => (
+            <div
+              key={policy.id}
+              className="rounded-lg border border-oc-border bg-oc-bg/45 p-4"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-oc-text">
+                    {policy.name}
+                  </p>
+                  <p className="mt-1 text-sm text-oc-muted">
+                    {policy.priority} · first response {policy.firstResponseMinutes}m
+                    {" · "}resolution {policy.resolutionMinutes}m
+                    {" · "}{policy.enabled ? "Enabled" : "Disabled"}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() => startEdit(policy)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() => {
+                      if (window.confirm("Delete this SLA policy?")) {
+                        deleteMutation.mutate(policy.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

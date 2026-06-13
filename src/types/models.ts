@@ -396,16 +396,54 @@ export interface NotificationItem {
   createdAt: string;
 }
 
-// Analytics dashboard payload.
-export interface AnalyticsOverview {
-  messageVolume24h?: number;
-  messageVolume7d?: number;
-  avgFirstResponseMinutes?: number;
-  activeConversations?: number;
-  newCustomers7d?: number;
+export type AnalyticsRange = "7d" | "30d" | "90d" | "all";
 
-  series?: {
-    t: string;
-    value: number;
-  }[];
+export interface AnalyticsBreakdownItem {
+  key: string;
+  count: number;
+}
+
+export interface AnalyticsTeamItem {
+  teamId: string | null;
+  name: string;
+  count: number;
+}
+
+export interface AnalyticsRecentActivity {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  actor: {
+    id: string;
+    displayName: string;
+  } | null;
+  createdAt: string;
+}
+
+export interface AnalyticsOverview {
+  range: AnalyticsRange;
+  period: {
+    from: string | null;
+    to: string;
+  };
+  summary: {
+    totalCustomers: number;
+    totalConversations: number;
+    openConversations: number;
+    pendingConversations: number;
+    resolvedConversations: number;
+    totalTickets: number;
+    openTickets: number;
+    resolvedClosedTickets: number;
+    attachmentsCount: number;
+    teamCount: number;
+  };
+  conversationsByChannel: AnalyticsBreakdownItem[];
+  conversationsByStatus: AnalyticsBreakdownItem[];
+  ticketsByStatus: AnalyticsBreakdownItem[];
+  ticketsByPriority: AnalyticsBreakdownItem[];
+  ticketsByTeam: AnalyticsTeamItem[];
+  conversationsByTeam: AnalyticsTeamItem[];
+  recentActivity: AnalyticsRecentActivity[];
 }

@@ -131,6 +131,24 @@ export function useInboxRealtime(companyId: string | null) {
     const onAttachmentCreated = (payload: unknown) => {
       const attachment = payload as Attachment | undefined;
       if (attachment?.conversationId) {
+        qc.setQueryData(
+          queryKeys.conversation(attachment.conversationId),
+          (old: Conversation | undefined) => {
+            if (!old) return old;
+            const attachments = old.attachments ?? [];
+            if (attachments.some((item) => item.id === attachment.id)) {
+              return old;
+            }
+            return {
+              ...old,
+              attachments: [...attachments, attachment].sort(
+                (a, b) =>
+                  new Date(a.createdAt).getTime() -
+                  new Date(b.createdAt).getTime(),
+              ),
+            };
+          },
+        );
         void qc.invalidateQueries({
           queryKey: queryKeys.conversation(attachment.conversationId),
         });

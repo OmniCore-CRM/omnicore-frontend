@@ -15,7 +15,8 @@ import {
 import { getErrorMessage } from "@/api/errors";
 import { getSocketUrl } from "@/lib/env";
 import type { Attachment, Message } from "@/types/models";
-import { AttachmentList } from "@/features/attachments/attachment-list";
+import { InlineAttachmentItem } from "@/features/attachments/attachment-list";
+import { buildConversationTimeline } from "@/features/attachments/conversation-timeline";
 import { Paperclip } from "lucide-react";
 
 type StoredWidgetSession = {
@@ -209,18 +210,14 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [attachments.length, messages.length]);
 
-  const sortedMessages = useMemo(
-    () =>
-      [...messages].sort(
-        (a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      ),
-    [messages],
+  const timeline = useMemo(
+    () => buildConversationTimeline(messages, attachments),
+    [attachments, messages],
   );
 
-  const showComposerShortcuts = sortedMessages.length <= 1;
+  const showComposerShortcuts = messages.length <= 1;
 
   async function startChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -456,11 +453,28 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
         {canChat && session && (
           <>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-slate-50 px-5 py-5">
-              {sortedMessages.map((message) => {
-                const mine = message.sender === "CUSTOMER";
+              {timeline.map((item) => {
+                if (item.type === "attachment") {
+                  return (
+                    <InlineAttachmentItem
+                      key={`attachment-${item.id}`}
+                      attachment={item.attachment}
+                      downloadingId={downloadingAttachmentId}
+                      onDownload={handleAttachmentDownload}
+                      align={
+                        item.attachment.uploadedFrom === "CUSTOMER_WIDGET"
+                          ? "right"
+                          : "left"
+                      }
+                      light
+                    />
+                  );
+                }
+
+                const mine = item.message.sender === "CUSTOMER";
                 return (
                   <div
-                    key={message.id}
+                    key={`message-${item.id}`}
                     className={`flex ${mine ? "justify-end" : "justify-start"}`}
                   >
                     <div
@@ -471,16 +485,16 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words">
-                        {message.content}
+                        {item.message.content}
                       </p>
                       <div
                         className={`mt-2 flex items-center gap-2 text-[11px] ${
                           mine ? "text-slate-300" : "text-slate-500"
                         }`}
                       >
-                        <span>{formatMessageTime(message.createdAt)}</span>
-                        {message.status === "PENDING" && <span>Sending</span>}
-                        {message.status === "FAILED" && (
+                        <span>{formatMessageTime(item.message.createdAt)}</span>
+                        {item.message.status === "PENDING" && <span>Sending</span>}
+                        {item.message.status === "FAILED" && (
                           <span
                             className={mine ? "text-red-200" : "text-red-600"}
                           >
@@ -492,19 +506,6 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
                   </div>
                 );
               })}
-              {Boolean(attachments.length) && (
-                <div className="rounded-xl border border-slate-200 bg-white p-3">
-                  <p className="mb-3 text-xs font-semibold uppercase text-slate-500">
-                    Shared files
-                  </p>
-                  <AttachmentList
-                    attachments={attachments}
-                    downloadingId={downloadingAttachmentId}
-                    onDownload={handleAttachmentDownload}
-                    light
-                  />
-                </div>
-              )}
               <div ref={bottomRef} />
             </div>
 

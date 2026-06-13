@@ -28,7 +28,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TagPills } from "@/features/tags/tag-editor";
-import { AttachmentList } from "@/features/attachments/attachment-list";
+import { InlineAttachmentItem } from "@/features/attachments/attachment-list";
+import { buildConversationTimeline } from "@/features/attachments/conversation-timeline";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
 import type {
@@ -158,7 +159,12 @@ export function MessageThreadPanel({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messagesQuery.data?.items, selectedId, peerTyping]);
+  }, [
+    messagesQuery.data?.items,
+    conversation?.attachments,
+    selectedId,
+    peerTyping,
+  ]);
 
   const sendMut = useMutation({
     mutationFn: (content: string) =>
@@ -323,6 +329,15 @@ export function MessageThreadPanel({
         reply.content.toLowerCase().includes(needle),
     );
   }, [savedRepliesQuery.data, savedReplySearch]);
+
+  const timeline = useMemo(
+    () =>
+      buildConversationTimeline(
+        messagesQuery.data?.items ?? [],
+        conversation?.attachments ?? [],
+      ),
+    [conversation?.attachments, messagesQuery.data?.items],
+  );
 
   const uploadAttachmentMut = useMutation({
     mutationFn: (file: File) =>
@@ -550,10 +565,22 @@ export function MessageThreadPanel({
               />
             ))}
           </div>
-        ) : messagesQuery.data?.items.length ? (
-          messagesQuery.data.items.map((m) => (
-            <MessageBubble key={m.id} message={m} />
-          ))
+        ) : timeline.length ? (
+          timeline.map((item) =>
+            item.type === "message" ? (
+              <MessageBubble key={`message-${item.id}`} message={item.message} />
+            ) : (
+              <InlineAttachmentItem
+                key={`attachment-${item.id}`}
+                attachment={item.attachment}
+                downloadingId={downloadingAttachmentId}
+                onDownload={handleDownload}
+                align={
+                  item.attachment.uploadedFrom === "AGENT" ? "right" : "left"
+                }
+              />
+            ),
+          )
         ) : (
           <div className="flex h-full min-h-[240px] items-center justify-center">
             <div className="max-w-sm text-center">
@@ -575,18 +602,6 @@ export function MessageThreadPanel({
               <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-oc-muted" />
             </span>
             Customer is typing…
-          </div>
-        )}
-        {Boolean(conversation?.attachments?.length) && (
-          <div className="mx-auto w-full max-w-2xl rounded-xl border border-oc-border bg-oc-panel/35 p-3">
-            <p className="mb-3 text-xs font-semibold uppercase text-oc-faint">
-              Shared files
-            </p>
-            <AttachmentList
-              attachments={conversation?.attachments}
-              downloadingId={downloadingAttachmentId}
-              onDownload={handleDownload}
-            />
           </div>
         )}
         <div ref={bottomRef} />

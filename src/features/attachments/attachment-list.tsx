@@ -78,3 +78,34 @@ export function AttachmentList({
     </div>
   );
 }
+
+export function InlineAttachmentItem({
+  attachment,
+  downloadingId,
+  onDownload,
+  align = "left",
+  light = false,
+}: {
+  attachment: Attachment;
+  downloadingId?: string | null;
+  onDownload: (attachment: Attachment) => void;
+  align?: "left" | "right";
+  light?: boolean;
+}) {
+  return (
+    <div
+      className={`flex w-full ${
+        align === "right" ? "justify-end" : "justify-start"
+      }`}
+    >
+      <div className="w-full max-w-[min(88%,560px)] sm:max-w-[min(78%,600px)]">
+        <AttachmentList
+          attachments={[attachment]}
+          downloadingId={downloadingId}
+          onDownload={onDownload}
+          light={light}
+        />
+      </div>
+    </div>
+  );
+}

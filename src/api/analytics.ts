@@ -1,8 +1,10 @@
 import { apiFetch } from "./client";
-import type { AnalyticsOverview } from "@/types/models";
+import type { AnalyticsOverview, AnalyticsRange } from "@/types/models";
 
 export async function getAnalyticsOverview(
   token: string,
+  range: AnalyticsRange,
 ): Promise<AnalyticsOverview> {
-  return apiFetch<AnalyticsOverview>("/analytics/overview", { token });
+  const query = new URLSearchParams({ range });
+  return apiFetch<AnalyticsOverview>(`/analytics/overview?${query}`, { token });
 }

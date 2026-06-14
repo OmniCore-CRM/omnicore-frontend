@@ -162,6 +162,8 @@ export interface Conversation {
   attachments?: Attachment[];
   tags?: Tag[];
   unreadCount?: number;
+  tickets?: CustomerTicketSummary[];
+  primaryTicket?: CustomerTicketSummary | null;
 
   assigneeId?: string | null;
   assignee?: AuthUser | null;

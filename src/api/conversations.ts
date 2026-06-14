@@ -11,6 +11,9 @@ export interface ConversationListParams {
   search?: string;
   channel?: string;
   status?: string;
+  ticketStatus?: string;
+  ticketPriority?: string;
+  assigneeId?: string;
   teamId?: string;
   tagId?: string;
   cursor?: string;
@@ -25,6 +28,9 @@ export async function listConversations(
   if (params.search) q.set("search", params.search);
   if (params.channel) q.set("channel", params.channel);
   if (params.status) q.set("status", params.status);
+  if (params.ticketStatus) q.set("ticketStatus", params.ticketStatus);
+  if (params.ticketPriority) q.set("ticketPriority", params.ticketPriority);
+  if (params.assigneeId) q.set("assigneeId", params.assigneeId);
   if (params.teamId) q.set("teamId", params.teamId);
   if (params.tagId) q.set("tagId", params.tagId);
   if (params.cursor) q.set("cursor", params.cursor);

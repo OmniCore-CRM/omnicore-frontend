@@ -42,7 +42,7 @@ export function CustomerInspectorPanel({
 
   if (!selectedId) {
     return (
-      <aside className="hidden min-h-0 w-[320px] shrink-0 border-l border-oc-border bg-oc-bg-mid/50 xl:flex xl:flex-col xl:items-center xl:justify-center xl:p-6">
+      <aside className="hidden min-h-0 w-[280px] shrink-0 border-l border-oc-border bg-oc-bg-mid/50 xl:flex xl:flex-col xl:items-center xl:justify-center xl:p-5">
         <p className="text-center text-xs text-oc-muted">
           Customer context appears when a thread is selected.
         </p>
@@ -184,7 +184,7 @@ export function CustomerInspectorPanel({
 
   return (
     <>
-      <aside className="hidden min-h-0 w-[320px] shrink-0 flex-col border-l border-oc-border bg-oc-bg-mid/50 xl:flex">
+      <aside className="hidden min-h-0 w-[280px] shrink-0 flex-col border-l border-oc-border bg-oc-bg-mid/50 xl:flex">
         {content}
       </aside>
 

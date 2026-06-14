@@ -91,6 +91,32 @@ export function AppSidebar({
         )}
       </div>
 
+      {!mobile && (
+        <div className="border-b border-oc-border px-3 py-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "min-h-10 w-full justify-start gap-2 text-sm",
+              compact && "justify-center px-0",
+            )}
+            onClick={toggleSidebar}
+            aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
+            title={compact ? "Expand sidebar" : undefined}
+          >
+            {compact ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronLeft className="h-4 w-4" />
+                <span>Collapse sidebar</span>
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
       <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto p-3">
         {links.map(({ href, label, icon: Icon }) => {
           const active =
@@ -115,31 +141,6 @@ export function AppSidebar({
           );
         })}
       </nav>
-
-      <div className="border-t border-oc-border p-3">
-        {!mobile && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "min-h-10 w-full justify-start gap-2 text-sm",
-              compact && "justify-center px-0",
-            )}
-            onClick={toggleSidebar}
-            aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {compact ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4" />
-                <span>Collapse</span>
-              </>
-            )}
-          </Button>
-        )}
-      </div>
     </aside>
   );
 }

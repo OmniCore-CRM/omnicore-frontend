@@ -16,9 +16,11 @@ import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
 export function CustomerInspectorPanel({
+  desktopCollapsed = false,
   mobileOpen = false,
   onCloseMobile,
 }: {
+  desktopCollapsed?: boolean;
   mobileOpen?: boolean;
   onCloseMobile?: () => void;
 }) {
@@ -42,7 +44,12 @@ export function CustomerInspectorPanel({
 
   if (!selectedId) {
     return (
-      <aside className="hidden min-h-0 w-[280px] shrink-0 border-l border-oc-border bg-oc-bg-mid/50 xl:flex xl:flex-col xl:items-center xl:justify-center xl:p-5">
+      <aside
+        className={cn(
+          "hidden min-h-0 w-[280px] shrink-0 border-l border-oc-border bg-oc-bg-mid/50 xl:flex xl:flex-col xl:items-center xl:justify-center xl:p-5",
+          desktopCollapsed && "xl:hidden",
+        )}
+      >
         <p className="text-center text-xs text-oc-muted">
           Customer context appears when a thread is selected.
         </p>
@@ -184,7 +191,12 @@ export function CustomerInspectorPanel({
 
   return (
     <>
-      <aside className="hidden min-h-0 w-[280px] shrink-0 flex-col border-l border-oc-border bg-oc-bg-mid/50 xl:flex">
+      <aside
+        className={cn(
+          "hidden min-h-0 w-[280px] shrink-0 flex-col border-l border-oc-border bg-oc-bg-mid/50 xl:flex",
+          desktopCollapsed && "xl:hidden",
+        )}
+      >
         {content}
       </aside>
 

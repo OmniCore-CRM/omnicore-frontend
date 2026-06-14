@@ -47,6 +47,8 @@ import {
   Info,
   Loader2,
   Paperclip,
+  PanelRightClose,
+  PanelRightOpen,
   Search,
   TicketCheck,
   Wifi,
@@ -121,9 +123,13 @@ function statusTone(status?: ConversationStatus) {
 export function MessageThreadPanel({
   onBack,
   onOpenCustomer,
+  customerPanelCollapsed,
+  onToggleCustomerPanel,
 }: {
   onBack: () => void;
   onOpenCustomer: () => void;
+  customerPanelCollapsed: boolean;
+  onToggleCustomerPanel: () => void;
 }) {
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
@@ -555,6 +561,29 @@ export function MessageThreadPanel({
           </div>
         </div>
         <div className="flex min-w-0 shrink-0 flex-wrap justify-end gap-1.5 max-sm:w-full max-sm:pl-12">
+          <Button
+            variant="ghost"
+            size="sm"
+            type="button"
+            className="hidden h-9 w-9 px-0 xl:inline-flex"
+            onClick={onToggleCustomerPanel}
+            aria-label={
+              customerPanelCollapsed
+                ? "Expand customer details"
+                : "Collapse customer details"
+            }
+            title={
+              customerPanelCollapsed
+                ? "Expand customer details"
+                : "Collapse customer details"
+            }
+          >
+            {customerPanelCollapsed ? (
+              <PanelRightOpen className="h-4 w-4" />
+            ) : (
+              <PanelRightClose className="h-4 w-4" />
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="sm"

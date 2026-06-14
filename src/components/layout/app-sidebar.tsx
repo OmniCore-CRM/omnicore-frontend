@@ -97,21 +97,15 @@ export function AppSidebar({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn(
-              "min-h-10 w-full justify-start gap-2 text-sm",
-              compact && "justify-center px-0",
-            )}
+            className="mx-auto flex h-10 w-10 justify-center px-0"
             onClick={toggleSidebar}
             aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
-            title={compact ? "Expand sidebar" : undefined}
+            title={compact ? "Expand sidebar" : "Collapse sidebar"}
           >
             {compact ? (
               <ChevronRight className="h-4 w-4" />
             ) : (
-              <>
-                <ChevronLeft className="h-4 w-4" />
-                <span>Collapse sidebar</span>
-              </>
+              <ChevronLeft className="h-4 w-4" />
             )}
           </Button>
         </div>

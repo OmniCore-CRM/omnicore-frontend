@@ -44,7 +44,7 @@ export function AppSidebar({
     <aside
       className={cn(
         "flex h-full shrink-0 flex-col border-r border-oc-border bg-oc-bg-mid/95 shadow-2xl shadow-black/20 backdrop-blur transition-[width] duration-200",
-        compact ? "w-[76px]" : "w-[264px]",
+        compact ? "w-[76px]" : "w-[240px]",
         mobile && "relative z-10 w-[min(84vw,320px)]",
       )}
     >
@@ -92,12 +92,17 @@ export function AppSidebar({
       </div>
 
       {!mobile && (
-        <div className="border-b border-oc-border px-3 py-2">
+        <div
+          className={cn(
+            "flex border-b border-oc-border px-3 py-2",
+            compact ? "justify-center" : "justify-end",
+          )}
+        >
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="mx-auto flex h-10 w-10 justify-center px-0"
+            className="h-10 w-10 justify-center px-0"
             onClick={toggleSidebar}
             aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
             title={compact ? "Expand sidebar" : "Collapse sidebar"}

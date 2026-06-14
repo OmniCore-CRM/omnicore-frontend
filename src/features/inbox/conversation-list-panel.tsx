@@ -400,6 +400,12 @@ function ConversationRow({
     needsMessagePreview && previewLoading,
   );
   const unread = c.unreadCount ?? 0;
+  const assignee = c.assignee ?? c.primaryTicket?.assignee;
+  const assigneeName =
+    assignee?.displayName ||
+    [assignee?.firstName, assignee?.lastName].filter(Boolean).join(" ") ||
+    assignee?.email;
+  const ownership = [c.team?.name, assigneeName].filter(Boolean).join(" • ");
 
   return (
     <button
@@ -427,12 +433,10 @@ function ConversationRow({
             {channelLabel(c.channel)}
           </Badge>
           <Badge tone={statusTone(c.status)}>{c.status ?? "OPEN"}</Badge>
-          {c.assignee && (
-            <span className="truncate text-xs text-oc-faint">
-              {c.assignee.displayName || c.assignee.email}
-            </span>
-          )}
         </div>
+        <p className="mt-1 truncate text-xs text-oc-faint">
+          {ownership || "Unassigned"}
+        </p>
         <p className="mt-2 line-clamp-2 text-sm leading-5 text-oc-muted">
           {preview}
         </p>

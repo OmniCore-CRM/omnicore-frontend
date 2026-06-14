@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
   getConversation,
@@ -9,7 +10,7 @@ import {
   patchConversation,
   sendMessage,
 } from "@/api/conversations";
-import { createTicketFromConversation } from "@/api/tickets";
+import { createTicketFromConversation, updateTicket } from "@/api/tickets";
 import { listSavedReplies } from "@/api/saved-replies";
 import { assignConversationTeam, listTeams } from "@/api/teams";
 import {
@@ -47,6 +48,7 @@ import {
   Loader2,
   Paperclip,
   Search,
+  TicketCheck,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -126,6 +128,7 @@ export function MessageThreadPanel({
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
+  const router = useRouter();
   const bottomRef = useRef<HTMLDivElement>(null);
   const socketState = useSocketConnection();
 
@@ -267,11 +270,52 @@ export function MessageThreadPanel({
       }),
     onSuccess: async (ticket) => {
       toast.success(`Ticket created: ${ticket.subject}`);
-      await qc.invalidateQueries({ queryKey: ["tickets"] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["tickets"] }),
+        qc.invalidateQueries({ queryKey: ["conversations"] }),
+        qc.invalidateQueries({ queryKey: queryKeys.conversation(selectedId!) }),
+      ]);
     },
     onError: (err) => {
       toast.error(getErrorMessage(err, "Could not create ticket"));
     },
+  });
+
+  const resolveTicketMut = useMutation({
+    mutationFn: async (ticket: NonNullable<Conversation["primaryTicket"]>) => {
+      if (ticket.status === "OPEN") {
+        await updateTicket(token!, ticket.id, { status: "PENDING" });
+      }
+      return updateTicket(token!, ticket.id, { status: "RESOLVED" });
+    },
+    onSuccess: async (ticket) => {
+      if (selectedId) {
+        qc.setQueryData<Conversation>(
+          queryKeys.conversation(selectedId),
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  primaryTicket:
+                    current.primaryTicket?.id === ticket.id
+                      ? { ...current.primaryTicket, ...ticket }
+                      : current.primaryTicket,
+                  tickets: current.tickets?.map((item) =>
+                    item.id === ticket.id ? { ...item, ...ticket } : item,
+                  ),
+                }
+              : current,
+        );
+      }
+      toast.success("Ticket resolved");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["tickets"] }),
+        qc.invalidateQueries({ queryKey: ["conversations"] }),
+        qc.invalidateQueries({ queryKey: queryKeys.ticket(ticket.id) }),
+      ]);
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not resolve ticket")),
   });
 
   const statusMut = useMutation({
@@ -417,6 +461,11 @@ export function MessageThreadPanel({
     customerName ||
     conversation?.customer?.email ||
     "Conversation";
+  const linkedTicket = conversation?.primaryTicket ?? conversation?.tickets?.[0];
+  const linkedTicketIsActive = Boolean(
+    linkedTicket &&
+      ["OPEN", "PENDING", "ESCALATED"].includes(linkedTicket.status),
+  );
 
   const createTicket = () => {
     if (!selectedId || createTicketMut.isPending) return;
@@ -431,7 +480,7 @@ export function MessageThreadPanel({
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-oc-bg/30">
-      <header className="flex min-h-16 items-center justify-between gap-3 border-b border-oc-border bg-oc-bg-mid/80 px-3 py-3 sm:px-4">
+      <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-oc-border bg-oc-bg-mid/80 px-3 py-3 sm:px-4">
         <Button
           variant="ghost"
           size="sm"
@@ -505,7 +554,7 @@ export function MessageThreadPanel({
             )}
           </div>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex min-w-0 shrink-0 flex-wrap justify-end gap-1.5 max-sm:w-full max-sm:pl-12">
           <Button
             variant="ghost"
             size="sm"
@@ -516,16 +565,46 @@ export function MessageThreadPanel({
           >
             <Info className="h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            type="button"
-            disabled={createTicketMut.isPending}
-            onClick={createTicket}
-          >
-            <span className="hidden sm:inline">Ticket</span>
-            <span className="sm:hidden">Tkt</span>
-          </Button>
+          {!linkedTicket && (
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              className="h-9 px-2.5 text-xs"
+              disabled={createTicketMut.isPending}
+              onClick={createTicket}
+            >
+              Create New Ticket
+            </Button>
+          )}
+          {linkedTicket && (
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              className="h-9 px-2.5 text-xs"
+              onClick={() => router.push(`/tickets?ticketId=${linkedTicket.id}`)}
+            >
+              View Ticket
+            </Button>
+          )}
+          {linkedTicketIsActive && (
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              className="h-9 gap-1.5 px-2.5 text-xs"
+              disabled={resolveTicketMut.isPending || user?.role === "VIEWER"}
+              onClick={() => resolveTicketMut.mutate(linkedTicket!)}
+            >
+              {resolveTicketMut.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <TicketCheck className="h-3.5 w-3.5" />
+              )}
+              Resolve Ticket
+            </Button>
+          )}
           <label className="relative">
             <span className="sr-only">Conversation status</span>
             <select
@@ -539,7 +618,7 @@ export function MessageThreadPanel({
                 statusMut.isPending ||
                 user?.role === "VIEWER"
               }
-              className="h-10 max-w-[118px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-xs font-semibold text-oc-text outline-none transition-colors hover:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-oc-accent disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-none sm:text-sm"
+              className="h-9 max-w-[118px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-xs font-semibold text-oc-text outline-none transition-colors hover:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-oc-accent disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-none"
             >
               {conversationStatuses.map((status) => (
                 <option key={status} value={status}>
@@ -555,7 +634,7 @@ export function MessageThreadPanel({
               value={conversation?.teamId ?? ""}
               onChange={(event) => teamMut.mutate(event.target.value || null)}
               disabled={teamMut.isPending || user?.role === "VIEWER"}
-              className="h-10 max-w-[132px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-sm font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
+              className="h-9 max-w-[132px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-xs font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
             >
               <option value="">No team</option>
               {(teamsQuery.data ?? []).map((team) => (

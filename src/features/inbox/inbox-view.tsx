@@ -17,6 +17,7 @@ export function InboxView() {
   const selectedId = useInboxStore((s) => s.selectedConversationId);
   const setSelectedId = useInboxStore((s) => s.setSelectedConversationId);
   const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
+  const [customerPanelCollapsed, setCustomerPanelCollapsed] = useState(false);
 
   // Initialize company-scoped realtime inbox events.
   useInboxRealtime(company?.id ?? null);
@@ -44,6 +45,10 @@ export function InboxView() {
         onOpenCustomer={() => setCustomerPanelOpen(true)}
       />
       <CustomerInspectorPanel
+        desktopCollapsed={customerPanelCollapsed}
+        onToggleDesktop={() =>
+          setCustomerPanelCollapsed((collapsed) => !collapsed)
+        }
         mobileOpen={customerPanelOpen}
         onCloseMobile={() => setCustomerPanelOpen(false)}
       />

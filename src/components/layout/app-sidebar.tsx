@@ -44,7 +44,7 @@ export function AppSidebar({
     <aside
       className={cn(
         "flex h-full shrink-0 flex-col border-r border-oc-border bg-oc-bg-mid/95 shadow-2xl shadow-black/20 backdrop-blur transition-[width] duration-200",
-        compact ? "w-[76px]" : "w-[264px]",
+        compact ? "w-[76px]" : "w-[240px]",
         mobile && "relative z-10 w-[min(84vw,320px)]",
       )}
     >
@@ -91,6 +91,31 @@ export function AppSidebar({
         )}
       </div>
 
+      {!mobile && (
+        <div
+          className={cn(
+            "flex border-b border-oc-border px-3 py-2",
+            compact ? "justify-center" : "justify-end",
+          )}
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-10 w-10 justify-center px-0"
+            onClick={toggleSidebar}
+            aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
+            title={compact ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {compact ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      )}
+
       <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto p-3">
         {links.map(({ href, label, icon: Icon }) => {
           const active =
@@ -115,31 +140,6 @@ export function AppSidebar({
           );
         })}
       </nav>
-
-      <div className="border-t border-oc-border p-3">
-        {!mobile && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "min-h-10 w-full justify-start gap-2 text-sm",
-              compact && "justify-center px-0",
-            )}
-            onClick={toggleSidebar}
-            aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {compact ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4" />
-                <span>Collapse</span>
-              </>
-            )}
-          </Button>
-        )}
-      </div>
     </aside>
   );
 }

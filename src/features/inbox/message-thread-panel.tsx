@@ -47,8 +47,6 @@ import {
   Info,
   Loader2,
   Paperclip,
-  PanelRightClose,
-  PanelRightOpen,
   Search,
   TicketCheck,
   Wifi,
@@ -123,13 +121,9 @@ function statusTone(status?: ConversationStatus) {
 export function MessageThreadPanel({
   onBack,
   onOpenCustomer,
-  customerPanelCollapsed,
-  onToggleCustomerPanel,
 }: {
   onBack: () => void;
   onOpenCustomer: () => void;
-  customerPanelCollapsed: boolean;
-  onToggleCustomerPanel: () => void;
 }) {
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
@@ -648,29 +642,6 @@ export function MessageThreadPanel({
               ))}
             </select>
           </label>
-          <Button
-            variant="ghost"
-            size="sm"
-            type="button"
-            className="hidden h-9 w-9 border border-oc-border/70 px-0 xl:inline-flex"
-            onClick={onToggleCustomerPanel}
-            aria-label={
-              customerPanelCollapsed
-                ? "Expand customer details"
-                : "Collapse customer details"
-            }
-            title={
-              customerPanelCollapsed
-                ? "Expand customer details"
-                : "Collapse customer details"
-            }
-          >
-            {customerPanelCollapsed ? (
-              <PanelRightOpen className="h-4 w-4" />
-            ) : (
-              <PanelRightClose className="h-4 w-4" />
-            )}
-          </Button>
         </div>
       </header>
 

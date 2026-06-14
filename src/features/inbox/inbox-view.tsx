@@ -43,13 +43,12 @@ export function InboxView() {
       <MessageThreadPanel
         onBack={() => setSelectedId(null)}
         onOpenCustomer={() => setCustomerPanelOpen(true)}
-        customerPanelCollapsed={customerPanelCollapsed}
-        onToggleCustomerPanel={() =>
-          setCustomerPanelCollapsed((collapsed) => !collapsed)
-        }
       />
       <CustomerInspectorPanel
         desktopCollapsed={customerPanelCollapsed}
+        onToggleDesktop={() =>
+          setCustomerPanelCollapsed((collapsed) => !collapsed)
+        }
         mobileOpen={customerPanelOpen}
         onCloseMobile={() => setCustomerPanelOpen(false)}
       />

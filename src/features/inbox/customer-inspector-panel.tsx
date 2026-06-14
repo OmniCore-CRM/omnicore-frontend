@@ -13,14 +13,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TagPills } from "@/features/tags/tag-editor";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
+import { PanelRightClose, PanelRightOpen, X } from "lucide-react";
 
 export function CustomerInspectorPanel({
   desktopCollapsed = false,
+  onToggleDesktop,
   mobileOpen = false,
   onCloseMobile,
 }: {
   desktopCollapsed?: boolean;
+  onToggleDesktop?: () => void;
   mobileOpen?: boolean;
   onCloseMobile?: () => void;
 }) {
@@ -78,6 +80,20 @@ export function CustomerInspectorPanel({
           <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
             Customer
           </p>
+          {onToggleDesktop && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="hidden h-9 gap-1.5 px-2 text-xs xl:inline-flex"
+              onClick={onToggleDesktop}
+              aria-label="Hide customer details"
+              title="Hide customer details"
+            >
+              <PanelRightClose className="h-4 w-4" />
+              <span>Hide</span>
+            </Button>
+          )}
           {onCloseMobile && (
             <Button
               type="button"
@@ -191,14 +207,25 @@ export function CustomerInspectorPanel({
 
   return (
     <>
-      <aside
-        className={cn(
-          "hidden min-h-0 w-[280px] shrink-0 flex-col border-l border-oc-border bg-oc-bg-mid/50 xl:flex",
-          desktopCollapsed && "xl:hidden",
-        )}
-      >
-        {content}
-      </aside>
+      {desktopCollapsed ? (
+        <aside className="hidden min-h-0 w-11 shrink-0 flex-col items-center border-l border-oc-border bg-oc-bg-mid/70 py-3 xl:flex">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 px-0"
+            onClick={onToggleDesktop}
+            aria-label="Show customer details"
+            title="Show customer details"
+          >
+            <PanelRightOpen className="h-4 w-4" />
+          </Button>
+        </aside>
+      ) : (
+        <aside className="hidden min-h-0 w-[280px] shrink-0 flex-col border-l border-oc-border bg-oc-bg-mid/50 xl:flex">
+          {content}
+        </aside>
+      )}
 
       {mobileOpen && (
         <div className="fixed inset-0 z-40 xl:hidden">

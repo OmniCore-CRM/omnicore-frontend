@@ -449,7 +449,16 @@ export function MessageThreadPanel({
           </p>
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
             {conversation?.channel && (
-              <Badge tone={conversation.channel === "WHATSAPP" ? "success" : "neutral"} className="normal-case">
+              <Badge
+                tone={
+                  conversation.channel === "WHATSAPP"
+                    ? "success"
+                    : conversation.channel === "EMAIL"
+                      ? "accent"
+                      : "neutral"
+                }
+                className="normal-case"
+              >
                 {conversation.channel}
               </Badge>
             )}
@@ -489,6 +498,11 @@ export function MessageThreadPanel({
                   ? "Offline"
                   : "Reconnecting"}
             </span>
+            {conversation?.channel === "EMAIL" && conversation.subject && (
+              <span className="max-w-full truncate text-xs text-oc-muted">
+                {conversation.subject}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -773,6 +787,26 @@ function MessageBubble({ message }: { message: Message }) {
             : "rounded-bl-md bg-oc-panel text-oc-text ring-oc-border",
         )}
       >
+        {message.provider === "EMAIL" && message.metadata && (
+          <div
+            className={cn(
+              "mb-2 space-y-0.5 border-b pb-2 text-xs",
+              outbound
+                ? "border-violet-300/25 text-violet-100/85"
+                : "border-oc-border text-oc-muted",
+            )}
+          >
+            {message.metadata.subject && (
+              <p className="truncate font-medium">{message.metadata.subject}</p>
+            )}
+            <p className="truncate">
+              {message.metadata.from ? `From ${message.metadata.from}` : ""}
+              {message.metadata.to?.length
+                ? `${message.metadata.from ? " · " : ""}To ${message.metadata.to.join(", ")}`
+                : ""}
+            </p>
+          </div>
+        )}
         <p className="whitespace-pre-wrap break-words">
           {message.content}
         </p>

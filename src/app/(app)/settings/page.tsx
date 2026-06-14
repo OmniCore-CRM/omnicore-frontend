@@ -41,6 +41,12 @@ import {
   updateAssignmentRule,
 } from "@/api/assignment-rules";
 import { listTeams } from "@/api/teams";
+import {
+  createEmailAccount,
+  deleteEmailAccount,
+  listEmailAccounts,
+  updateEmailAccount,
+} from "@/api/email";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import type {
@@ -49,6 +55,7 @@ import type {
   AssignmentRuleConditionType,
   AssignmentRuleTargetType,
   AuthUser,
+  EmailAccount,
   SavedReply,
   SlaPolicy,
   Tag,
@@ -108,6 +115,11 @@ const auditActions = [
   "ASSIGNMENT_RULE_DELETED",
   "TICKET_AUTO_TEAM_ASSIGNED",
   "CONVERSATION_AUTO_TEAM_ASSIGNED",
+  "EMAIL_ACCOUNT_CREATED",
+  "EMAIL_ACCOUNT_UPDATED",
+  "EMAIL_ACCOUNT_DELETED",
+  "EMAIL_RECEIVED",
+  "EMAIL_SENT",
 ];
 
 const auditEntityTypes = [
@@ -121,6 +133,8 @@ const auditEntityTypes = [
   "ATTACHMENT",
   "SLA_POLICY",
   "ASSIGNMENT_RULE",
+  "EMAIL_ACCOUNT",
+  "MESSAGE",
 ];
 
 const settingsSelectClass =
@@ -341,16 +355,7 @@ export default function SettingsPage() {
           )}
 
           {tab === "Channels" && (
-            <Card className="space-y-3 p-5">
-              <h2 className="text-sm font-semibold text-oc-text">
-                Channel integrations
-              </h2>
-              <p className="text-sm text-oc-muted">
-                {/* TODO: WhatsApp / email provider setup endpoints */}
-                WhatsApp Business, email transports, and SMS — connect to
-                channels module when ready.
-              </p>
-            </Card>
+            <EmailChannelsSettings token={token ?? ""} user={user} />
           )}
 
           {tab === "Widget" && (
@@ -545,6 +550,211 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function EmailChannelsSettings({
+  token,
+  user,
+}: {
+  token: string;
+  user: AuthUser | null;
+}) {
+  const qc = useQueryClient();
+  const accountsQuery = useQuery({
+    queryKey: queryKeys.emailAccounts,
+    queryFn: () => listEmailAccounts(token),
+    enabled: Boolean(token),
+  });
+  const [editing, setEditing] = useState<EmailAccount | null>(null);
+  const [fromEmail, setFromEmail] = useState("");
+  const [fromName, setFromName] = useState("");
+  const canManage = ["OWNER", "ADMIN", "TEAM_LEAD"].includes(user?.role ?? "");
+  const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.emailAccounts });
+  const reset = () => {
+    setEditing(null);
+    setFromEmail("");
+    setFromName("");
+  };
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      editing
+        ? updateEmailAccount(token, editing.id, {
+            fromEmail,
+            fromName: fromName.trim() || undefined,
+          })
+        : createEmailAccount(token, {
+            provider: "RESEND",
+            fromEmail,
+            fromName: fromName.trim() || undefined,
+          }),
+    onSuccess: async () => {
+      await refresh();
+      reset();
+      toast.success(editing ? "Email channel updated" : "Email channel created");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not save email channel")),
+  });
+  const statusMutation = useMutation({
+    mutationFn: (account: EmailAccount) =>
+      updateEmailAccount(token, account.id, {
+        status: account.status === "ACTIVE" ? "DISABLED" : "ACTIVE",
+      }),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Email channel status updated");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update email channel")),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteEmailAccount(token, id),
+    onSuccess: async () => {
+      await refresh();
+      reset();
+      toast.success("Email channel removed");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not remove email channel")),
+  });
+  const busy =
+    saveMutation.isPending ||
+    statusMutation.isPending ||
+    deleteMutation.isPending;
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-oc-text">Email channel</h2>
+          <p className="mt-1 text-sm text-oc-muted">
+            Configure the tenant-owned address used for inbound and outbound
+            email. Provider secrets remain on the server.
+          </p>
+        </div>
+        <form
+          className="grid gap-3 sm:grid-cols-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (fromEmail.trim() && canManage && !busy) saveMutation.mutate();
+          }}
+        >
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            From email
+            <Input
+              className="mt-2"
+              type="email"
+              value={fromEmail}
+              onChange={(event) => setFromEmail(event.target.value)}
+              placeholder="support@example.com"
+              disabled={!canManage || busy}
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            From name
+            <Input
+              className="mt-2"
+              value={fromName}
+              onChange={(event) => setFromName(event.target.value)}
+              placeholder="Example Support"
+              disabled={!canManage || busy}
+            />
+          </label>
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <Button type="submit" disabled={!canManage || busy || !fromEmail.trim()}>
+              {editing ? "Save email channel" : "Add email channel"}
+            </Button>
+            {editing && (
+              <Button type="button" variant="secondary" disabled={busy} onClick={reset}>
+                Cancel edit
+              </Button>
+            )}
+          </div>
+        </form>
+        <p className="text-xs text-oc-faint">
+          Resend delivery requires RESEND_API_KEY and EMAIL_WEBHOOK_SECRET in
+          the backend environment.
+        </p>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <div>
+          <h3 className="text-sm font-semibold text-oc-text">Configured addresses</h3>
+          <p className="mt-1 text-sm text-oc-muted">
+            Email sent to an active address enters this company&apos;s inbox.
+          </p>
+        </div>
+        {accountsQuery.isLoading && <p className="text-sm text-oc-muted">Loading...</p>}
+        {accountsQuery.error && (
+          <p className="rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-200">
+            {getErrorMessage(accountsQuery.error, "Could not load email channels")}
+          </p>
+        )}
+        {!accountsQuery.isLoading &&
+          !accountsQuery.error &&
+          (accountsQuery.data?.length ?? 0) === 0 && (
+            <p className="rounded-lg border border-dashed border-oc-border bg-oc-bg/40 p-5 text-sm text-oc-muted">
+              No email channel configured yet.
+            </p>
+          )}
+        <div className="grid gap-3">
+          {(accountsQuery.data ?? []).map((account) => (
+            <div
+              key={account.id}
+              className="flex flex-col gap-3 rounded-lg border border-oc-border bg-oc-bg/45 p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-oc-text">
+                  {account.fromName || account.fromEmail}
+                </p>
+                <p className="truncate text-sm text-oc-muted">{account.fromEmail}</p>
+                <p className="mt-1 text-xs uppercase text-oc-faint">
+                  {account.provider} · {account.status}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={!canManage || busy}
+                  onClick={() => {
+                    setEditing(account);
+                    setFromEmail(account.fromEmail);
+                    setFromName(account.fromName ?? "");
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={!canManage || busy}
+                  onClick={() => statusMutation.mutate(account)}
+                >
+                  {account.status === "ACTIVE" ? "Disable" : "Enable"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="danger"
+                  disabled={!canManage || busy}
+                  onClick={() => {
+                    if (window.confirm("Remove this email channel?")) {
+                      deleteMutation.mutate(account.id);
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }

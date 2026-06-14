@@ -20,4 +20,5 @@ export const queryKeys = {
     ["audit-logs", params ?? {}] as const,
   slaPolicies: ["sla-policies"] as const,
   assignmentRules: ["assignment-rules"] as const,
+  emailAccounts: ["email-accounts"] as const,
 };

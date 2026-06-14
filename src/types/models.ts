@@ -217,11 +217,29 @@ export interface Message {
 
   provider?: ConversationChannel | null;
   externalMessageId?: string | null;
+  metadata?: {
+    subject?: string;
+    from?: string;
+    to?: string[];
+  } | null;
 
   attachments?: Attachment[];
 
   createdAt: string;
   updatedAt?: string;
+}
+
+export type EmailAccountStatus = "ACTIVE" | "DISABLED";
+
+export interface EmailAccount {
+  id: string;
+  companyId: string;
+  provider: "RESEND";
+  fromEmail: string;
+  fromName?: string | null;
+  status: EmailAccountStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Attachment {

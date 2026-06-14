@@ -34,10 +34,20 @@ import {
   listSlaPolicies,
   updateSlaPolicy,
 } from "@/api/sla-policies";
+import {
+  createAssignmentRule,
+  deleteAssignmentRule,
+  listAssignmentRules,
+  updateAssignmentRule,
+} from "@/api/assignment-rules";
+import { listTeams } from "@/api/teams";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import type {
   AuditLog,
+  AssignmentRule,
+  AssignmentRuleConditionType,
+  AssignmentRuleTargetType,
   AuthUser,
   SavedReply,
   SlaPolicy,
@@ -53,6 +63,7 @@ const tabs = [
   "Widget",
   "Saved replies",
   "Tags",
+  "Assignment rules",
   "SLA policies",
   "Audit logs",
   "Notifications",
@@ -92,6 +103,11 @@ const auditActions = [
   "SLA_POLICY_DELETED",
   "TICKET_SLA_UPDATED",
   "TICKET_SLA_BREACHED",
+  "ASSIGNMENT_RULE_CREATED",
+  "ASSIGNMENT_RULE_UPDATED",
+  "ASSIGNMENT_RULE_DELETED",
+  "TICKET_AUTO_TEAM_ASSIGNED",
+  "CONVERSATION_AUTO_TEAM_ASSIGNED",
 ];
 
 const auditEntityTypes = [
@@ -104,6 +120,7 @@ const auditEntityTypes = [
   "SAVED_REPLY",
   "ATTACHMENT",
   "SLA_POLICY",
+  "ASSIGNMENT_RULE",
 ];
 
 const settingsSelectClass =
@@ -506,6 +523,15 @@ export default function SettingsPage() {
             />
           )}
 
+          {tab === "Assignment rules" && (
+            <AssignmentRulesSettings
+              token={token ?? ""}
+              canMutate={["OWNER", "ADMIN", "TEAM_LEAD"].includes(
+                user?.role ?? "",
+              )}
+            />
+          )}
+
           {tab === "Notifications" && (
             <Card className="space-y-3 p-5">
               <h2 className="text-sm font-semibold text-oc-text">
@@ -751,6 +777,345 @@ function SlaPoliciesSettings({
                     onClick={() => {
                       if (window.confirm("Delete this SLA policy?")) {
                         deleteMutation.mutate(policy.id);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+const ticketPriorities: TicketPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+
+function AssignmentRulesSettings({
+  token,
+  canMutate,
+}: {
+  token: string;
+  canMutate: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [enabled, setEnabled] = useState(true);
+  const [targetType, setTargetType] =
+    useState<AssignmentRuleTargetType>("CONVERSATION");
+  const [conditionType, setConditionType] =
+    useState<AssignmentRuleConditionType>("CHANNEL");
+  const [conditionValue, setConditionValue] = useState("WHATSAPP");
+  const [teamId, setTeamId] = useState("");
+
+  const rulesQuery = useQuery({
+    queryKey: queryKeys.assignmentRules,
+    queryFn: () => listAssignmentRules(token),
+    enabled: Boolean(token),
+  });
+  const teamsQuery = useQuery({
+    queryKey: queryKeys.teams,
+    queryFn: () => listTeams(token),
+    enabled: Boolean(token),
+  });
+  const tagsQuery = useQuery({
+    queryKey: queryKeys.tags(),
+    queryFn: () => listTags(token),
+    enabled: Boolean(token),
+  });
+  const rules = rulesQuery.data ?? [];
+  const teams = teamsQuery.data ?? [];
+  const tags = tagsQuery.data ?? [];
+
+  const resetForm = () => {
+    setEditingId(null);
+    setName("");
+    setEnabled(true);
+    setTargetType("CONVERSATION");
+    setConditionType("CHANNEL");
+    setConditionValue("WHATSAPP");
+    setTeamId("");
+  };
+  const refresh = async () => {
+    resetForm();
+    await queryClient.invalidateQueries({ queryKey: queryKeys.assignmentRules });
+  };
+  const payload = () => ({
+    name: name.trim(),
+    enabled,
+    targetType,
+    conditionType,
+    conditionValue,
+    teamId,
+  });
+  const createMutation = useMutation({
+    mutationFn: () => createAssignmentRule(token, payload()),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Assignment rule created");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not create assignment rule")),
+  });
+  const updateMutation = useMutation({
+    mutationFn: (body: ReturnType<typeof payload>) =>
+      updateAssignmentRule(token, editingId!, body),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Assignment rule updated");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not update assignment rule")),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (ruleId: string) => deleteAssignmentRule(token, ruleId),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Assignment rule deleted");
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Could not delete assignment rule")),
+  });
+  const busy =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    deleteMutation.isPending;
+
+  const chooseTarget = (next: AssignmentRuleTargetType) => {
+    setTargetType(next);
+    if (next === "CONVERSATION") {
+      setConditionType("CHANNEL");
+      setConditionValue("WHATSAPP");
+    } else {
+      setConditionType("PRIORITY");
+      setConditionValue("MEDIUM");
+    }
+  };
+  const chooseCondition = (next: AssignmentRuleConditionType) => {
+    setConditionType(next);
+    setConditionValue(next === "TAG" ? tags[0]?.id ?? "" : "MEDIUM");
+  };
+  const startEdit = (rule: AssignmentRule) => {
+    setEditingId(rule.id);
+    setName(rule.name);
+    setEnabled(rule.enabled);
+    setTargetType(rule.targetType);
+    setConditionType(rule.conditionType);
+    setConditionValue(rule.conditionValue);
+    setTeamId(rule.teamId);
+  };
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canMutate || !name.trim() || !conditionValue || !teamId) return;
+    if (editingId) updateMutation.mutate(payload());
+    else createMutation.mutate();
+  };
+  const conditionLabel = (rule: AssignmentRule) => {
+    if (rule.conditionType === "TAG") {
+      return tags.find((tag) => tag.id === rule.conditionValue)?.name ?? "Tag";
+    }
+    return formatAuditLabel(rule.conditionValue);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-oc-text">
+            Assignment rules
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-oc-muted">
+            Route new conversations and tickets to the first matching team.
+            Explicit manual team assignments are never replaced.
+          </p>
+        </div>
+        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+          <label className="text-xs font-semibold uppercase text-oc-faint sm:col-span-2">
+            Rule name
+            <Input
+              className="mt-2"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="WhatsApp to Support"
+              disabled={!canMutate || busy}
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Target
+            <select
+              className={settingsSelectClass}
+              value={targetType}
+              onChange={(event) =>
+                chooseTarget(event.target.value as AssignmentRuleTargetType)
+              }
+              disabled={!canMutate || busy}
+            >
+              <option value="CONVERSATION">Conversation</option>
+              <option value="TICKET">Ticket</option>
+            </select>
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Condition
+            <select
+              className={settingsSelectClass}
+              value={conditionType}
+              onChange={(event) =>
+                chooseCondition(
+                  event.target.value as AssignmentRuleConditionType,
+                )
+              }
+              disabled={!canMutate || busy || targetType === "CONVERSATION"}
+            >
+              {targetType === "CONVERSATION" ? (
+                <option value="CHANNEL">Channel</option>
+              ) : (
+                <>
+                  <option value="PRIORITY">Priority</option>
+                  <option value="TAG">Tag</option>
+                </>
+              )}
+            </select>
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Matches
+            <select
+              className={settingsSelectClass}
+              value={conditionValue}
+              onChange={(event) => setConditionValue(event.target.value)}
+              disabled={!canMutate || busy}
+            >
+              {conditionType === "CHANNEL" &&
+                ["WHATSAPP", "WEBSITE"].map((value) => (
+                  <option key={value} value={value}>
+                    {formatAuditLabel(value)}
+                  </option>
+                ))}
+              {conditionType === "PRIORITY" &&
+                ticketPriorities.map((value) => (
+                  <option key={value} value={value}>
+                    {formatAuditLabel(value)}
+                  </option>
+                ))}
+              {conditionType === "TAG" &&
+                tags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Assign team
+            <select
+              className={settingsSelectClass}
+              value={teamId}
+              onChange={(event) => setTeamId(event.target.value)}
+              disabled={!canMutate || busy}
+              required
+            >
+              <option value="">Select a team</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-3 rounded-xl border border-oc-border bg-oc-panel px-3 py-3 text-sm text-oc-text">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => setEnabled(event.target.checked)}
+              disabled={!canMutate || busy}
+            />
+            Enabled
+          </label>
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <Button
+              type="submit"
+              disabled={!canMutate || busy || !name.trim() || !teamId}
+            >
+              {editingId ? "Save rule" : "Create rule"}
+            </Button>
+            {editingId && (
+              <Button type="button" variant="secondary" onClick={resetForm}>
+                Cancel edit
+              </Button>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <h3 className="text-sm font-semibold text-oc-text">Routing order</h3>
+        {rulesQuery.isLoading && (
+          <p className="text-sm text-oc-muted">Loading assignment rules...</p>
+        )}
+        {!rulesQuery.isLoading && rules.length === 0 && (
+          <p className="rounded-lg border border-dashed border-oc-border p-4 text-sm text-oc-muted">
+            No assignment rules yet.
+          </p>
+        )}
+        <div className="space-y-3">
+          {rules.map((rule, index) => (
+            <div
+              key={rule.id}
+              className="rounded-lg border border-oc-border bg-oc-bg/45 p-4"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-oc-text">
+                    {index + 1}. {rule.name}
+                  </p>
+                  <p className="mt-1 text-sm text-oc-muted">
+                    {formatAuditLabel(rule.targetType)} ·{" "}
+                    {formatAuditLabel(rule.conditionType)} ={" "}
+                    {conditionLabel(rule)} · {rule.team.name} ·{" "}
+                    {rule.enabled ? "Enabled" : "Disabled"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() =>
+                      updateAssignmentRule(token, rule.id, {
+                        enabled: !rule.enabled,
+                      })
+                        .then(() => refresh())
+                        .catch((error) =>
+                          toast.error(
+                            getErrorMessage(error, "Could not update rule"),
+                          ),
+                        )
+                    }
+                  >
+                    {rule.enabled ? "Disable" : "Enable"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() => startEdit(rule)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    disabled={!canMutate || busy}
+                    onClick={() => {
+                      if (window.confirm("Delete this assignment rule?")) {
+                        deleteMutation.mutate(rule.id);
                       }
                     }}
                   >

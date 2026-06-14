@@ -164,6 +164,9 @@ const formatActivityTitle = (item: TicketActivity) => {
   }
   if (item.action === "SLA_BREACHED") return "SLA breached";
   if (item.action === "SLA_UPDATED") return "SLA timing updated";
+  if (item.action === "AUTO_TEAM_ASSIGNED") {
+    return "Automatically routed to team";
+  }
 
   return formatActivityAction(item.action);
 };

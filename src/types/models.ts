@@ -175,9 +175,13 @@ export interface Conversation {
 export interface ConversationActivity {
   id: string;
   conversationId: string;
-  actorId: string;
-  actor?: AuthUser;
-  action: "STATUS_CHANGED" | "TEAM_ASSIGNED" | "TEAM_UNASSIGNED";
+  actorId: string | null;
+  actor?: AuthUser | null;
+  action:
+    | "STATUS_CHANGED"
+    | "TEAM_ASSIGNED"
+    | "TEAM_UNASSIGNED"
+    | "AUTO_TEAM_ASSIGNED";
   metadata?: {
     from?: ConversationStatus;
     to?: ConversationStatus;
@@ -363,6 +367,22 @@ export interface SlaPolicy {
   updatedAt: string;
 }
 
+export type AssignmentRuleTargetType = "CONVERSATION" | "TICKET";
+export type AssignmentRuleConditionType = "CHANNEL" | "PRIORITY" | "TAG";
+
+export interface AssignmentRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  targetType: AssignmentRuleTargetType;
+  conditionType: AssignmentRuleConditionType;
+  conditionValue: string;
+  teamId: string;
+  team: Pick<Team, "id" | "name" | "description">;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type TicketActivityAction =
   | "TICKET_CREATED"
   | "TICKET_CREATED_FROM_WIDGET"
@@ -375,6 +395,7 @@ export type TicketActivityAction =
   | "MESSAGE_RECEIVED_ON_WIDGET"
   | "TEAM_ASSIGNED"
   | "TEAM_UNASSIGNED"
+  | "AUTO_TEAM_ASSIGNED"
   | "SLA_UPDATED"
   | "SLA_BREACHED";
 
@@ -399,7 +420,7 @@ export interface TicketNote {
 export interface TicketActivity {
   id: string;
   ticketId: string;
-  actorId: string;
+  actorId: string | null;
   actor?: AuthUser | null;
   action: TicketActivityAction;
   metadata?: Record<string, unknown> | null;

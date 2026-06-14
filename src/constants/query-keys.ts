@@ -19,4 +19,5 @@ export const queryKeys = {
   auditLogs: (params?: Record<string, string | undefined>) =>
     ["audit-logs", params ?? {}] as const,
   slaPolicies: ["sla-policies"] as const,
+  assignmentRules: ["assignment-rules"] as const,
 };

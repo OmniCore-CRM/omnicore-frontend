@@ -783,13 +783,13 @@ function TicketsWorkspace() {
             <table className="w-full table-fixed text-left text-sm">
               <thead className="border-b border-oc-border bg-oc-bg/70 text-xs uppercase text-oc-faint">
                 <tr>
-                  <th className="w-[27%] px-5 py-4 font-semibold">Subject</th>
-                  <th className="w-[13%] px-4 py-4 font-semibold">Status</th>
-                  <th className="w-[11%] px-4 py-4 font-semibold">Priority</th>
+                  <th className="w-[25%] px-5 py-4 font-semibold">Subject</th>
+                  <th className="w-[15%] px-4 py-4 font-semibold">Status</th>
+                  <th className="w-[13%] px-4 py-4 font-semibold">Priority</th>
                   <th className="w-[12%] px-4 py-4 font-semibold">Customer</th>
-                  <th className="w-[17%] px-4 py-4 font-semibold">Assignee</th>
+                  <th className="w-[16%] px-4 py-4 font-semibold">Assignee</th>
                   <th className="w-[9%] px-3 py-4 font-semibold">Updated</th>
-                  <th className="w-[11%] px-4 py-4 text-right font-semibold">
+                  <th className="w-[10%] px-4 py-4 text-right font-semibold">
                     Action
                   </th>
                 </tr>
@@ -982,22 +982,22 @@ function TicketRow({
           </Badge>
         </div>
       </td>
-      <td className="px-4 py-5">
-        <div className="flex min-w-0">
+      <td className="min-w-0 px-4 py-5">
+        <div className="flex min-w-0 overflow-hidden">
           <Badge
             tone={statusTone(ticket.status)}
-            className="max-w-full min-w-0 gap-1.5 px-2.5 py-1 normal-case"
+            className="max-w-full min-w-0 gap-1.5 overflow-hidden whitespace-nowrap px-2 py-0.5 text-[11px] normal-case"
           >
-            <CircleDot className="h-3 w-3 shrink-0" />
+            <CircleDot className="h-2.5 w-2.5 shrink-0" />
             <span className="truncate">{ticket.status}</span>
           </Badge>
         </div>
       </td>
-      <td className="px-4 py-5">
-        <div className="flex min-w-0">
+      <td className="min-w-0 px-4 py-5">
+        <div className="flex min-w-0 overflow-hidden">
           <Badge
             tone={priorityTone(ticket.priority)}
-            className="max-w-full min-w-0 px-2.5 py-1 normal-case"
+            className="max-w-full min-w-0 overflow-hidden whitespace-nowrap px-2 py-0.5 text-[11px] normal-case"
           >
             <span className="truncate">{ticket.priority}</span>
           </Badge>

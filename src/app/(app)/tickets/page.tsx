@@ -120,6 +120,9 @@ const displayUser = (user?: AuthUser | null) =>
   user?.email ||
   "—";
 
+const displayAssignee = (user?: AuthUser | null) =>
+  user ? displayUser(user) : "Unassigned";
+
 const displayCustomer = (ticket?: Ticket | null) =>
   ticket?.customer
     ? [ticket.customer.firstName, ticket.customer.lastName]
@@ -781,12 +784,12 @@ function TicketsWorkspace() {
               <thead className="border-b border-oc-border bg-oc-bg/70 text-xs uppercase text-oc-faint">
                 <tr>
                   <th className="w-[25%] px-5 py-4 font-semibold">Subject</th>
-                  <th className="w-[14%] px-3 py-4 font-semibold">Status</th>
-                  <th className="w-[12%] px-3 py-4 font-semibold">Priority</th>
-                  <th className="w-[13%] px-4 py-4 font-semibold">Customer</th>
-                  <th className="w-[13%] px-4 py-4 font-semibold">Assignee</th>
-                  <th className="w-[11%] px-4 py-4 font-semibold">Updated</th>
-                  <th className="w-[12%] px-4 py-4 text-right font-semibold">
+                  <th className="w-[15%] px-4 py-4 font-semibold">Status</th>
+                  <th className="w-[13%] px-4 py-4 font-semibold">Priority</th>
+                  <th className="w-[12%] px-4 py-4 font-semibold">Customer</th>
+                  <th className="w-[16%] px-4 py-4 font-semibold">Assignee</th>
+                  <th className="w-[9%] px-3 py-4 font-semibold">Updated</th>
+                  <th className="w-[10%] px-4 py-4 text-right font-semibold">
                     Action
                   </th>
                 </tr>
@@ -979,22 +982,26 @@ function TicketRow({
           </Badge>
         </div>
       </td>
-      <td className="px-3 py-5">
-        <Badge
-          tone={statusTone(ticket.status)}
-          className="gap-1.5 px-2.5 py-1 normal-case"
-        >
-          <CircleDot className="h-3 w-3" />
-          {ticket.status}
-        </Badge>
+      <td className="min-w-0 px-4 py-5">
+        <div className="flex min-w-0 overflow-hidden">
+          <Badge
+            tone={statusTone(ticket.status)}
+            className="max-w-full min-w-0 gap-1.5 overflow-hidden whitespace-nowrap px-2 py-0.5 text-[11px] normal-case"
+          >
+            <CircleDot className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{ticket.status}</span>
+          </Badge>
+        </div>
       </td>
-      <td className="px-4 py-5">
-        <Badge
-          tone={priorityTone(ticket.priority)}
-          className="px-2.5 py-1 normal-case"
-        >
-          {ticket.priority}
-        </Badge>
+      <td className="min-w-0 px-4 py-5">
+        <div className="flex min-w-0 overflow-hidden">
+          <Badge
+            tone={priorityTone(ticket.priority)}
+            className="max-w-full min-w-0 overflow-hidden whitespace-nowrap px-2 py-0.5 text-[11px] normal-case"
+          >
+            <span className="truncate">{ticket.priority}</span>
+          </Badge>
+        </div>
       </td>
       <td className="px-4 py-5">
         <div className="flex min-w-0 items-center gap-3">
@@ -1006,22 +1013,23 @@ function TicketRow({
           </span>
         </div>
       </td>
-      <td className="px-5 py-5">
+      <td className="px-4 py-5">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-oc-border bg-oc-bg text-xs font-semibold text-oc-muted">
-            {ticket.assignee ? initials(displayUser(ticket.assignee)) : "—"}
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-oc-border bg-oc-bg text-[11px] font-semibold text-oc-muted">
+            {ticket.assignee ? initials(displayAssignee(ticket.assignee)) : "—"}
           </span>
           <span
             className={cn(
-              "truncate text-sm",
+              "min-w-0 truncate text-sm",
               ticket.assignee ? "font-medium text-oc-text" : "italic text-oc-faint",
             )}
+            title={displayAssignee(ticket.assignee)}
           >
-            {displayUser(ticket.assignee)}
+            {displayAssignee(ticket.assignee)}
           </span>
         </div>
       </td>
-      <td className="px-4 py-5 text-sm text-oc-muted">
+      <td className="px-3 py-5 text-sm text-oc-muted">
         {ticket.updatedAt ? formatRelative(ticket.updatedAt) : "—"}
       </td>
       <td className="px-4 py-5 text-right">
@@ -1102,7 +1110,9 @@ function TicketCard({
         </span>
         <span className="flex min-w-0 items-center gap-2">
           <UserRound className="h-4 w-4 shrink-0 text-oc-faint" />
-          <span className="truncate">Assignee: {displayUser(ticket.assignee)}</span>
+          <span className="truncate">
+            Assignee: {displayAssignee(ticket.assignee)}
+          </span>
         </span>
       </div>
       <Button
@@ -1296,7 +1306,10 @@ function TicketDetailPanel({
   return (
     <aside
       className={cn(
-        "min-h-0 w-full shrink-0 border-l border-oc-border bg-oc-bg-mid/70 lg:w-[390px] xl:w-[430px]",
+        "min-h-0 w-full shrink-0 border-l border-oc-border bg-oc-bg-mid/70 transition-[width,background-color] duration-200",
+        selectedId
+          ? "lg:w-[390px] xl:w-[430px] 2xl:w-[460px]"
+          : "lg:w-[280px] xl:w-[320px]",
         !selectedId && "hidden lg:block",
       )}
     >
@@ -1509,7 +1522,7 @@ function TicketDetailPanel({
                   <div className="flex justify-between gap-3 px-3 py-3">
                     <dt className="text-oc-muted">Assignee</dt>
                     <dd className="min-w-0 truncate text-oc-text">
-                      {displayUser(ticket.assignee)}
+                      {displayAssignee(ticket.assignee)}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-3 px-3 py-3">

@@ -25,11 +25,11 @@ export default async function WidgetPage({
   const displayKey = publicKey || "No widget key provided";
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-oc-bg text-oc-text">
+    <main className="relative min-h-screen w-full max-w-full overflow-x-hidden bg-oc-bg text-oc-text">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_10%,rgba(124,58,237,0.18),transparent_34%),radial-gradient(circle_at_80%_0%,rgba(52,211,153,0.12),transparent_28%)]" />
 
-      <section className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-        <header className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
+      <section className="mx-auto flex min-h-screen w-full max-w-7xl min-w-0 flex-col gap-8 overflow-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+        <header className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-end">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-oc-accent-2">
               OmniCore Website Chat Widget
@@ -44,7 +44,7 @@ export default async function WidgetPage({
             </p>
           </div>
 
-          <div className="rounded-xl border border-oc-border bg-oc-panel/70 p-4 shadow-oc-card">
+          <div className="min-w-0 rounded-xl border border-oc-border bg-oc-panel/70 p-4 shadow-oc-card">
             <p className="text-xs font-semibold uppercase text-oc-faint">
               Current public key
             </p>
@@ -60,7 +60,7 @@ export default async function WidgetPage({
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid min-w-0 gap-4 md:grid-cols-3">
           {[
             ["Customer", "A visitor opens the widget from your website or mobile WebView."],
             ["Widget", "The visitor starts or resumes a lightweight support conversation."],
@@ -68,7 +68,7 @@ export default async function WidgetPage({
           ].map(([title, body]) => (
             <article
               key={title}
-              className="rounded-xl border border-oc-border bg-oc-panel/65 p-5 shadow-oc-card"
+              className="min-w-0 rounded-xl border border-oc-border bg-oc-panel/65 p-5 shadow-oc-card"
             >
               <p className="text-sm font-semibold text-oc-text">{title}</p>
               <p className="mt-2 text-sm leading-6 text-oc-muted">{body}</p>
@@ -76,8 +76,8 @@ export default async function WidgetPage({
           ))}
         </section>
 
-        <section className="grid min-h-0 gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="space-y-4">
+        <section className="grid min-h-0 min-w-0 gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <div className="min-w-0 space-y-4">
             <div className="rounded-xl border border-oc-border bg-oc-panel/70 p-5 shadow-oc-card">
               <h2 className="text-base font-semibold text-oc-text">
                 Integration options
@@ -119,8 +119,8 @@ export default async function WidgetPage({
               <h2 className="text-base font-semibold text-oc-text">
                 Example embed snippet
               </h2>
-              <pre className="mt-4 max-h-72 overflow-auto rounded-lg border border-oc-border bg-oc-bg p-4 text-xs leading-5 text-oc-muted">
-                <code>{buildIframeSnippet(publicKey)}</code>
+              <pre className="mt-4 max-h-72 max-w-full overflow-x-auto overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-oc-border bg-oc-bg p-4 text-xs leading-5 text-oc-muted">
+                <code className="block min-w-0 max-w-full">{buildIframeSnippet(publicKey)}</code>
               </pre>
               <p className="mt-3 text-xs leading-5 text-oc-faint">
                 Replace the demo domain with your deployed OmniCore frontend
@@ -132,18 +132,18 @@ export default async function WidgetPage({
               <h2 className="text-base font-semibold text-oc-text">
                 Mobile WebView URL
               </h2>
-              <div className="mt-4 overflow-hidden rounded-lg border border-oc-border bg-oc-bg px-3 py-3 font-mono text-xs text-oc-muted">
-                <span className="block truncate" title={buildMobileWebViewUrl(publicKey)}>
+              <div className="mt-4 max-w-full overflow-x-auto rounded-lg border border-oc-border bg-oc-bg px-3 py-3 font-mono text-xs text-oc-muted">
+                <span className="block min-w-0 break-all" title={buildMobileWebViewUrl(publicKey)}>
                   {buildMobileWebViewUrl(publicKey)}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-oc-border bg-oc-bg-mid/80 p-4 shadow-oc-card sm:p-5">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-oc-border bg-oc-bg-mid/80 p-4 shadow-oc-card sm:p-5">
             <div className="overflow-hidden rounded-xl border border-oc-border bg-oc-panel">
-              <div className="flex items-center justify-between border-b border-oc-border px-4 py-3">
-                <div>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-oc-border px-4 py-3">
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-oc-text">
                     Mock company website preview
                   </p>
@@ -170,7 +170,7 @@ export default async function WidgetPage({
                   </p>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2">
                   {[
                     ["Order status", "Track recent requests and service updates."],
                     ["Billing help", "Ask questions about invoices and payments."],
@@ -179,7 +179,7 @@ export default async function WidgetPage({
                   ].map(([title, body]) => (
                     <div
                       key={title}
-                      className="rounded-lg border border-oc-border bg-oc-bg/55 p-4"
+                      className="min-w-0 rounded-lg border border-oc-border bg-oc-bg/55 p-4"
                     >
                       <p className="text-sm font-semibold text-oc-text">
                         {title}

@@ -16,15 +16,28 @@ export interface TicketListParams {
   teamId?: string;
   tagId?: string;
   slaStatus?: string;
+  createdDate?: string;
+  updatedDate?: string;
   search?: string;
   cursor?: string;
   limit?: number;
 }
 
+export interface TicketListSummary {
+  total: number;
+  openPending: number;
+  escalated: number;
+  resolvedClosed: number;
+}
+
+export type TicketListResponse = Paginated<Ticket> & {
+  summary?: TicketListSummary;
+};
+
 export async function listTickets(
   token: string,
   params: TicketListParams = {},
-): Promise<Paginated<Ticket>> {
+): Promise<TicketListResponse> {
   const q = new URLSearchParams();
   if (params.status) q.set("status", params.status);
   if (params.priority) q.set("priority", params.priority);
@@ -32,6 +45,8 @@ export async function listTickets(
   if (params.teamId) q.set("teamId", params.teamId);
   if (params.tagId) q.set("tagId", params.tagId);
   if (params.slaStatus) q.set("slaStatus", params.slaStatus);
+  if (params.createdDate) q.set("createdDate", params.createdDate);
+  if (params.updatedDate) q.set("updatedDate", params.updatedDate);
   if (params.search) q.set("search", params.search);
   if (params.cursor) q.set("cursor", params.cursor);
   if (params.limit) q.set("limit", String(params.limit));
@@ -40,7 +55,13 @@ export async function listTickets(
     token,
     cache: "no-store",
   });
-  return normalizePaginated<Ticket>(raw);
+  const normalized = normalizePaginated<Ticket>(raw) as TicketListResponse;
+
+  if (raw && typeof raw === "object" && "summary" in raw) {
+    normalized.summary = (raw as { summary?: TicketListSummary }).summary;
+  }
+
+  return normalized;
 }
 
 export async function getTicket(token: string, id: string): Promise<Ticket> {

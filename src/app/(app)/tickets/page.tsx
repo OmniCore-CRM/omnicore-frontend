@@ -264,6 +264,17 @@ const initials = (value: string) =>
 const fieldControlClass =
   "mt-2 h-11 w-full min-w-0 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
 
+const buildTicketSummary = (tickets: Ticket[], total?: number) => ({
+  total: total ?? tickets.length,
+  openPending: tickets.filter(
+    (ticket) => ticket.status === "OPEN" || ticket.status === "PENDING",
+  ).length,
+  escalated: tickets.filter((ticket) => ticket.status === "ESCALATED").length,
+  resolvedClosed: tickets.filter(
+    (ticket) => ticket.status === "RESOLVED" || ticket.status === "CLOSED",
+  ).length,
+});
+
 function activityIconClass(action: string) {
   const key = action.toUpperCase();
   if (key.includes("NOTE")) return "bg-violet-500/20 text-violet-200";
@@ -299,6 +310,9 @@ function TicketsWorkspace() {
   const debouncedSearch = useDebouncedValue(q);
   const [status, setStatus] = useState<TicketStatus | "">("");
   const [priority, setPriority] = useState<TicketPriority | "">("");
+  const [filterAssigneeId, setFilterAssigneeId] = useState("");
+  const [createdDate, setCreatedDate] = useState("");
+  const [updatedDate, setUpdatedDate] = useState("");
   const [slaStatus, setSlaStatus] = useState<SlaStatus | "">("");
   const [teamId, setTeamId] = useState("");
   const [tagId, setTagId] = useState("");
@@ -331,13 +345,27 @@ function TicketsWorkspace() {
       search: debouncedSearch || undefined,
       status: status || undefined,
       priority: priority || undefined,
+      assigneeId: filterAssigneeId || undefined,
+      createdDate: createdDate || undefined,
+      updatedDate: updatedDate || undefined,
       slaStatus: slaStatus || undefined,
       teamId: teamId || undefined,
       tagId: tagId || undefined,
       cursor,
       limit: 30,
     }),
-    [cursor, debouncedSearch, priority, slaStatus, status, tagId, teamId],
+    [
+      cursor,
+      createdDate,
+      debouncedSearch,
+      filterAssigneeId,
+      priority,
+      slaStatus,
+      status,
+      tagId,
+      teamId,
+      updatedDate,
+    ],
   );
 
   const ticketListKey = queryKeys.tickets(
@@ -520,6 +548,7 @@ function TicketsWorkspace() {
   };
 
   const tickets = data?.items ?? [];
+  const ticketSummary = data?.summary ?? buildTicketSummary(tickets, data?.total);
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden bg-oc-bg">
@@ -554,7 +583,7 @@ function TicketsWorkspace() {
 
         <Card className="mb-5 overflow-hidden p-4 md:p-5">
           <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
-            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8">
               <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint sm:col-span-2 xl:col-span-1">
                 Search
                 <span className="relative mt-2 block">
@@ -608,6 +637,53 @@ function TicketsWorkspace() {
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
+                Assignee
+                <select
+                  value={filterAssigneeId}
+                  onChange={(event) => {
+                    setFilterAssigneeId(event.target.value);
+                    resetPagination();
+                  }}
+                  className={fieldControlClass}
+                  aria-label="Filter by assignee"
+                >
+                  <option value="">All assignees</option>
+                  <option value="unassigned">Unassigned</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {[u.firstName, u.lastName].filter(Boolean).join(" ") ||
+                        u.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
+                Created Date
+                <input
+                  type="date"
+                  value={createdDate}
+                  onChange={(event) => {
+                    setCreatedDate(event.target.value);
+                    resetPagination();
+                  }}
+                  className={fieldControlClass}
+                  aria-label="Filter by created date"
+                />
+              </label>
+              <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
+                Updated Date
+                <input
+                  type="date"
+                  value={updatedDate}
+                  onChange={(event) => {
+                    setUpdatedDate(event.target.value);
+                    resetPagination();
+                  }}
+                  className={fieldControlClass}
+                  aria-label="Filter by last updated date"
+                />
               </label>
               <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint">
                 SLA
@@ -672,6 +748,8 @@ function TicketsWorkspace() {
             </div>
           </div>
         </Card>
+
+        <TicketSummaryStrip summary={ticketSummary} loading={isLoading} />
 
         {creating && (
           <Card className="mb-5 p-5 md:p-6">
@@ -816,13 +894,16 @@ function TicketsWorkspace() {
                   <tr>
                     <td className="px-5 py-16" colSpan={7}>
                       <EmptyTicketsState
-                        filtered={Boolean(q || status || priority || slaStatus || teamId || tagId)}
+                        filtered={Boolean(q || status || priority || filterAssigneeId || createdDate || updatedDate || slaStatus || teamId || tagId)}
                         canCreate={canMutate}
                         onCreate={() => setCreating(true)}
                         onClear={() => {
                           setQ("");
                           setStatus("");
                           setPriority("");
+                          setFilterAssigneeId("");
+                          setCreatedDate("");
+                          setUpdatedDate("");
                           setSlaStatus("");
                           setTeamId("");
                           setTagId("");
@@ -855,13 +936,16 @@ function TicketsWorkspace() {
             )}
             {!isLoading && !error && tickets.length === 0 && (
               <EmptyTicketsState
-                filtered={Boolean(q || status || priority || slaStatus || teamId || tagId)}
+                filtered={Boolean(q || status || priority || filterAssigneeId || createdDate || updatedDate || slaStatus || teamId || tagId)}
                 canCreate={canMutate}
                 onCreate={() => setCreating(true)}
                 onClear={() => {
                   setQ("");
                   setStatus("");
                   setPriority("");
+                  setFilterAssigneeId("");
+                  setCreatedDate("");
+                  setUpdatedDate("");
                   setSlaStatus("");
                   setTeamId("");
                   setTagId("");
@@ -1126,6 +1210,36 @@ function TicketCard({
         View details
       </Button>
     </article>
+  );
+}
+
+function TicketSummaryStrip({
+  summary,
+  loading,
+}: {
+  summary: ReturnType<typeof buildTicketSummary>;
+  loading: boolean;
+}) {
+  const items = [
+    ["Total Tickets", summary.total],
+    ["Open/Pending", summary.openPending],
+    ["Escalated", summary.escalated],
+    ["Resolved/Closed", summary.resolvedClosed],
+  ] as const;
+
+  return (
+    <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map(([label, value]) => (
+        <Card key={label} className="p-4">
+          <p className="text-xs font-semibold uppercase text-oc-faint">
+            {label}
+          </p>
+          <p className="mt-2 text-2xl font-semibold text-oc-text">
+            {loading ? "..." : value}
+          </p>
+        </Card>
+      ))}
+    </div>
   );
 }
 

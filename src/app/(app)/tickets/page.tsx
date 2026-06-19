@@ -376,6 +376,8 @@ function TicketsWorkspace() {
     queryKey: ticketListKey,
     queryFn: () => listTickets(token!, params),
     enabled: !!token,
+    staleTime: 45_000,
+    placeholderData: (previous) => previous,
   });
 
   const {
@@ -386,6 +388,7 @@ function TicketsWorkspace() {
     queryKey: queryKeys.ticket(selectedId ?? "_"),
     queryFn: () => getTicket(token!, selectedId!),
     enabled: !!token && !!selectedId,
+    staleTime: 30_000,
   });
 
   useEffect(() => {
@@ -419,28 +422,33 @@ function TicketsWorkspace() {
     queryKey: ["users"],
     queryFn: () => listUsers(token!),
     enabled: !!token,
+    staleTime: 5 * 60_000,
   });
   const { data: teams = [] } = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
     enabled: !!token,
+    staleTime: 2 * 60_000,
   });
   const { data: tags = [] } = useQuery({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token!),
     enabled: !!token,
+    staleTime: 5 * 60_000,
   });
 
   const { data: notes = [] } = useQuery({
     queryKey: ["ticket-notes", selectedId ?? "_"],
     queryFn: () => listTicketNotes(token!, selectedId!),
     enabled: !!token && !!selectedId,
+    staleTime: 30_000,
   });
 
   const { data: activity = [] } = useQuery({
     queryKey: ["ticket-activity", selectedId ?? "_"],
     queryFn: () => listTicketActivity(token!, selectedId!),
     enabled: !!token && !!selectedId,
+    staleTime: 30_000,
   });
 
   const createMut = useMutation({

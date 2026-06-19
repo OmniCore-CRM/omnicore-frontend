@@ -136,6 +136,7 @@ export function MessageThreadPanel({
     queryKey: queryKeys.conversation(selectedId ?? "_"),
     queryFn: () => getConversation(token!, selectedId!),
     enabled: !!token && !!selectedId,
+    staleTime: 30_000,
   });
 
   const qc = useQueryClient();
@@ -147,17 +148,20 @@ export function MessageThreadPanel({
     queryKey: queryKeys.messages(selectedId ?? "_"),
     queryFn: () => listMessages(token!, selectedId!, { limit: 80 }),
     enabled: !!token && !!selectedId,
+    staleTime: 10_000,
   });
 
   const savedRepliesQuery = useQuery({
     queryKey: queryKeys.savedReplies(),
     queryFn: () => listSavedReplies(token!),
     enabled: !!token && !!selectedId,
+    staleTime: 5 * 60_000,
   });
   const teamsQuery = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
     enabled: !!token && !!selectedId,
+    staleTime: 2 * 60_000,
   });
 
   useEffect(() => {

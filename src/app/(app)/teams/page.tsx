@@ -39,11 +39,13 @@ export default function TeamsPage() {
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
     enabled: !!token,
+    staleTime: 2 * 60_000,
   });
   const usersQuery = useQuery({
     queryKey: ["users"],
     queryFn: () => listUsers(token!),
     enabled: !!token,
+    staleTime: 5 * 60_000,
   });
   const teams = teamsQuery.data ?? [];
   const selected = teams.find((team) => team.id === selectedId) ?? null;

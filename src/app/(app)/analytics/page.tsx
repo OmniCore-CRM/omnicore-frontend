@@ -411,6 +411,8 @@ export default function AnalyticsPage() {
     queryKey: queryKeys.analyticsOverview(range),
     queryFn: () => getAnalyticsOverview(token!, range),
     enabled: Boolean(token),
+    staleTime: 2 * 60_000,
+    placeholderData: (previous) => previous,
   });
 
   return (

@@ -137,6 +137,8 @@ export default function CustomersPage() {
     ),
     queryFn: () => listCustomers(token!, params),
     enabled: !!token,
+    staleTime: 60_000,
+    placeholderData: (previous) => previous,
   });
 
   const {
@@ -147,6 +149,7 @@ export default function CustomersPage() {
     queryKey: queryKeys.customer(selectedId ?? "_"),
     queryFn: () => getCustomer(token!, selectedId!),
     enabled: !!token && !!selectedId,
+    staleTime: 60_000,
   });
 
   const customers = data?.items ?? [];
@@ -154,6 +157,7 @@ export default function CustomersPage() {
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token!),
     enabled: !!token,
+    staleTime: 5 * 60_000,
   });
 
   return (

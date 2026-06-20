@@ -104,11 +104,14 @@ export default function ConversationsPage() {
     }),
     queryFn: () => listConversations(token!, params),
     enabled: !!token,
+    staleTime: 60_000,
+    placeholderData: (previous) => previous,
   });
   const usersQuery = useQuery({
     queryKey: ["users"],
     queryFn: () => listUsers(token!),
     enabled: !!token,
+    staleTime: 5 * 60_000,
   });
 
   const conversations = conversationsQuery.data?.items ?? [];

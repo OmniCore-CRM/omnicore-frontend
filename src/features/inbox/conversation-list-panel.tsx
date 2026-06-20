@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listConversations, listMessages } from "@/api/conversations";
+import { listConversations } from "@/api/conversations";
 import { listTags } from "@/api/tags";
 import { listTeams } from "@/api/teams";
 import { queryKeys } from "@/constants/query-keys";
@@ -20,7 +20,6 @@ import type {
   ConversationChannel,
   Conversation,
   ConversationStatus,
-  Message,
 } from "@/types/models";
 
 function channelLabel(ch?: ConversationChannel) {
@@ -58,11 +57,7 @@ function hasActivityAfterCreation(c: Conversation) {
   return updatedAt > createdAt + 1000;
 }
 
-function getConversationPreview(
-  c: Conversation,
-  fetchedMessages?: Message[],
-  loadingMessages?: boolean,
-) {
+function getConversationPreview(c: Conversation) {
   if (isMeaningfulPreview(c.lastMessagePreview)) {
     return c.lastMessagePreview!.trim();
   }
@@ -78,18 +73,8 @@ function getConversationPreview(
     return latestMessage!.content.trim();
   }
 
-  const fetchedLatestMessage = fetchedMessages?.[fetchedMessages.length - 1];
-
-  if (isMeaningfulPreview(fetchedLatestMessage?.content)) {
-    return fetchedLatestMessage!.content.trim();
-  }
-
   if (c.subject?.trim()) {
     return c.subject.trim();
-  }
-
-  if (loadingMessages) {
-    return `${channelLabel(c.channel)} conversation loading preview`;
   }
 
   if (hasActivityAfterCreation(c)) {
@@ -152,6 +137,8 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
     ),
     queryFn: () => listConversations(token!, apiParams),
     enabled: !!token,
+    staleTime: 30_000,
+    placeholderData: (previous) => previous,
     select: (page) => {
       let items = page.items;
       items = [...items].sort((a, b) => {
@@ -170,11 +157,13 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
     enabled: !!token,
+    staleTime: 2 * 60_000,
   });
   const { data: tags = [] } = useQuery({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token!),
     enabled: !!token,
+    staleTime: 5 * 60_000,
   });
 
   return (
@@ -377,28 +366,12 @@ function ConversationRow({
   onSelect: () => void;
 }) {
   const customer = c.customer;
-  const token = useAuthStore((s) => s.accessToken);
   const name =
     customer?.firstName ||
     customer?.email ||
     customer?.phone ||
     "Customer";
-  const needsMessagePreview =
-    !c.lastMessagePreview &&
-    !c.latestMessage &&
-    !c.lastMessage &&
-    !c.messages?.length;
-  const { data: messagePage, isLoading: previewLoading } = useQuery({
-    queryKey: queryKeys.messages(c.id),
-    queryFn: () => listMessages(token!, c.id, { limit: 80 }),
-    enabled: !!token && needsMessagePreview,
-    staleTime: 30_000,
-  });
-  const preview = getConversationPreview(
-    c,
-    messagePage?.items,
-    needsMessagePreview && previewLoading,
-  );
+  const preview = getConversationPreview(c);
   const unread = c.unreadCount ?? 0;
   const assignee = c.assignee ?? c.primaryTicket?.assignee;
   const assigneeName =

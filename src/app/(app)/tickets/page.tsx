@@ -6,6 +6,7 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useSearchParams } from "next/navigation";
@@ -35,7 +36,10 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TagEditor, TagPills } from "@/features/tags/tag-editor";
-import { AttachmentList } from "@/features/attachments/attachment-list";
+import {
+  AttachmentList,
+  formatFileSize,
+} from "@/features/attachments/attachment-list";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -333,6 +337,14 @@ function TicketsWorkspace() {
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
     string | null
   >(null);
+  const [pendingTicketAttachment, setPendingTicketAttachment] = useState<{
+    ticketId: string;
+    file: File;
+  } | null>(null);
+  const pendingTicketAttachmentFile =
+    pendingTicketAttachment && pendingTicketAttachment.ticketId === selectedId
+      ? pendingTicketAttachment.file
+      : null;
   const canMutate = user?.role !== "VIEWER";
 
   const resetPagination = () => {
@@ -529,8 +541,11 @@ function TicketsWorkspace() {
 
   const attachmentMut = useMutation({
     mutationFn: (file: File) => uploadTicketAttachment(token!, selectedId!, file),
-    onSuccess: async () => {
+    onSuccess: async (_attachment, file) => {
       toast.success("Attachment uploaded");
+      setPendingTicketAttachment((current) =>
+        current?.file === file ? null : current,
+      );
       await qc.invalidateQueries({ queryKey: queryKeys.ticket(selectedId!) });
       await qc.invalidateQueries({ queryKey: ["tickets"] });
     },
@@ -1021,7 +1036,16 @@ function TicketsWorkspace() {
         updatingTeam={teamMut.isPending}
         noteMutate={() => noteMut.mutate()}
         addingNote={noteMut.isPending}
-        uploadAttachment={(file) => attachmentMut.mutate(file)}
+        pendingAttachment={pendingTicketAttachmentFile}
+        choosePendingAttachment={(file) => {
+          if (selectedId) setPendingTicketAttachment({ ticketId: selectedId, file });
+        }}
+        removePendingAttachment={() => setPendingTicketAttachment(null)}
+        uploadPendingAttachment={() => {
+          if (pendingTicketAttachmentFile) {
+            attachmentMut.mutate(pendingTicketAttachmentFile);
+          }
+        }}
         uploadingAttachment={attachmentMut.isPending}
         downloadingAttachmentId={downloadingAttachmentId}
         downloadAttachment={handleAttachmentDownload}
@@ -1385,7 +1409,10 @@ function TicketDetailPanel({
   updatingTeam,
   noteMutate,
   addingNote,
-  uploadAttachment,
+  pendingAttachment,
+  choosePendingAttachment,
+  removePendingAttachment,
+  uploadPendingAttachment,
   uploadingAttachment,
   downloadingAttachmentId,
   downloadAttachment: onDownloadAttachment,
@@ -1412,7 +1439,10 @@ function TicketDetailPanel({
   updatingTeam: boolean;
   noteMutate: () => void;
   addingNote: boolean;
-  uploadAttachment: (file: File) => void;
+  pendingAttachment: File | null;
+  choosePendingAttachment: (file: File) => void;
+  removePendingAttachment: () => void;
+  uploadPendingAttachment: () => void;
   uploadingAttachment: boolean;
   downloadingAttachmentId: string | null;
   downloadAttachment: (attachment: Attachment) => void;
@@ -1424,6 +1454,7 @@ function TicketDetailPanel({
     ticket?.conversation?.recentMessages,
   );
   const metrics = ticket?.metrics;
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <aside
@@ -1795,27 +1826,73 @@ function TicketDetailPanel({
                     </p>
                   </div>
                   {canMutate && (
-                    <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm font-medium text-oc-text transition-colors hover:bg-oc-bg focus-within:outline focus-within:outline-2 focus-within:outline-oc-accent">
-                      {uploadingAttachment ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Paperclip className="h-4 w-4" />
-                      )}
-                      Upload file
+                    <>
                       <input
+                        ref={attachmentInputRef}
                         type="file"
                         className="sr-only"
                         accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,.doc,.docx,.xls,.xlsx"
                         disabled={uploadingAttachment}
                         onChange={(event) => {
                           const file = event.target.files?.[0];
-                          if (file) uploadAttachment(file);
+                          if (file) choosePendingAttachment(file);
                           event.currentTarget.value = "";
                         }}
                       />
-                    </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-10 gap-2"
+                        disabled={uploadingAttachment}
+                        onClick={() => attachmentInputRef.current?.click()}
+                      >
+                        <Paperclip className="h-4 w-4" />
+                        Choose file
+                      </Button>
+                    </>
                   )}
                 </div>
+                {pendingAttachment && (
+                  <div className="flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-oc-border/70 bg-oc-bg/45 p-3">
+                    <Paperclip className="h-4 w-4 shrink-0 text-oc-faint" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-oc-text">
+                        {pendingAttachment.name}
+                      </p>
+                      <p className="text-xs text-oc-muted">
+                        {formatFileSize(pendingAttachment.size)} selected. Confirm upload.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 px-2"
+                        onClick={removePendingAttachment}
+                        disabled={uploadingAttachment}
+                      >
+                        Remove
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        className="h-9 gap-2 px-3"
+                        onClick={uploadPendingAttachment}
+                        disabled={uploadingAttachment}
+                      >
+                        {uploadingAttachment ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Paperclip className="h-4 w-4" />
+                        )}
+                        Upload
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <AttachmentList
                   attachments={ticket.attachments}
                   downloadingId={downloadingAttachmentId}

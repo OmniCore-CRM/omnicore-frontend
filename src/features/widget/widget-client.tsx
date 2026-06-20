@@ -15,9 +15,12 @@ import {
 import { getErrorMessage } from "@/api/errors";
 import { getSocketUrl } from "@/lib/env";
 import type { Attachment, Message } from "@/types/models";
-import { InlineAttachmentItem } from "@/features/attachments/attachment-list";
+import {
+  formatFileSize,
+  InlineAttachmentItem,
+} from "@/features/attachments/attachment-list";
 import { buildConversationTimeline } from "@/features/attachments/conversation-timeline";
-import { Paperclip } from "lucide-react";
+import { Loader2, Paperclip } from "lucide-react";
 
 type StoredWidgetSession = {
   sessionToken: string;
@@ -81,11 +84,21 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    conversationId: string;
+    file: File;
+  } | null>(null);
+  const pendingAttachmentFile =
+    pendingAttachment &&
+    pendingAttachment.conversationId === session?.conversationId
+      ? pendingAttachment.file
+      : null;
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
     string | null
   >(null);
   const [connected, setConnected] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const tempMessageCounter = useRef(0);
 
   const canChat = Boolean(publicKey && bootstrapped);
 
@@ -256,42 +269,62 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!session || !composer.trim()) return;
+    if (!session) return;
 
     const content = composer.trim();
-    const tempMessage: Message = {
-      id: `temp-${Date.now()}`,
-      conversationId: session.conversationId,
-      content,
-      sender: "CUSTOMER",
-      status: "PENDING",
-      createdAt: new Date().toISOString(),
-    };
+    const file = pendingAttachmentFile;
+    if (!content && !file) return;
 
-    setComposer("");
-    setMessages((current) => [...current, tempMessage]);
+    const tempMessage: Message | null = content
+      ? {
+          id: `temp-${session.conversationId}-${++tempMessageCounter.current}`,
+          conversationId: session.conversationId,
+          content,
+          sender: "CUSTOMER",
+          status: "PENDING",
+          createdAt: new Date().toISOString(),
+        }
+      : null;
+
+    if (content) setComposer("");
+    if (tempMessage) {
+      setMessages((current) => [...current, tempMessage]);
+    }
     setSending(true);
     setError(null);
 
     try {
-      const message = await sendWidgetMessage(
-        publicKey,
-        session.conversationId,
-        session.sessionToken,
-        content,
-      );
-      setMessages((current) =>
-        upsertMessage(
-          current.filter((m) => m.id !== tempMessage.id),
-          message,
-        ),
-      );
+      if (content && tempMessage) {
+        const message = await sendWidgetMessage(
+          publicKey,
+          session.conversationId,
+          session.sessionToken,
+          content,
+        );
+        setMessages((current) =>
+          upsertMessage(
+            current.filter((m) => m.id !== tempMessage.id),
+            message,
+          ),
+        );
+      }
+
+      if (file) {
+        const uploaded = await uploadAttachment(file);
+        if (uploaded) {
+          setPendingAttachment((current) =>
+            current?.file === file ? null : current,
+          );
+        }
+      }
     } catch (err) {
-      setMessages((current) =>
-        current.map((m) =>
-          m.id === tempMessage.id ? { ...m, status: "FAILED" } : m,
-        ),
-      );
+      if (tempMessage) {
+        setMessages((current) =>
+          current.map((m) =>
+            m.id === tempMessage.id ? { ...m, status: "FAILED" } : m,
+          ),
+        );
+      }
       setError(getErrorMessage(err, "Message failed to send"));
     } finally {
       setSending(false);
@@ -299,7 +332,7 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
   }
 
   async function uploadAttachment(file: File) {
-    if (!session) return;
+    if (!session) return false;
     setUploading(true);
     setError(null);
     try {
@@ -314,8 +347,10 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
           ? current
           : [...current, attachment],
       );
+      return true;
     } catch (err) {
       setError(getErrorMessage(err, "Attachment failed to upload"));
+      return false;
     } finally {
       setUploading(false);
     }
@@ -528,8 +563,29 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
 
             <form
               onSubmit={sendMessage}
-              className="flex shrink-0 items-end gap-3 border-t border-slate-200 bg-white p-4"
+              className="flex shrink-0 flex-wrap items-end gap-3 border-t border-slate-200 bg-white p-4"
             >
+              {pendingAttachmentFile && (
+                <div className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <Paperclip className="h-4 w-4 shrink-0 text-slate-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {pendingAttachmentFile.name}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {formatFileSize(pendingAttachmentFile.size)} selected. Send to upload.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPendingAttachment(null)}
+                    disabled={uploading}
+                    className="min-h-9 shrink-0 rounded-lg px-3 text-xs font-semibold text-slate-600 transition hover:bg-white disabled:opacity-60"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
               <label className="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-slate-700 transition hover:bg-slate-50 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-slate-500">
                 <Paperclip className="h-4 w-4" />
                 <span className="sr-only">Upload attachment</span>
@@ -540,7 +596,12 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
                   disabled={uploading}
                   onChange={(event) => {
                     const file = event.target.files?.[0];
-                    if (file) void uploadAttachment(file);
+                    if (file && session) {
+                      setPendingAttachment({
+                        conversationId: session.conversationId,
+                        file,
+                      });
+                    }
                     event.currentTarget.value = "";
                   }}
                 />
@@ -554,10 +615,14 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
               />
               <button
                 type="submit"
-                disabled={sending || !composer.trim()}
+                disabled={sending || uploading || (!composer.trim() && !pendingAttachmentFile)}
                 className="min-h-11 shrink-0 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Send
+                {sending || uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Send"
+                )}
               </button>
             </form>
           </>

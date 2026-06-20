@@ -29,7 +29,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TagPills } from "@/features/tags/tag-editor";
-import { InlineAttachmentItem } from "@/features/attachments/attachment-list";
+import {
+  formatFileSize,
+  InlineAttachmentItem,
+} from "@/features/attachments/attachment-list";
 import { buildConversationTimeline } from "@/features/attachments/conversation-timeline";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
@@ -363,6 +366,14 @@ export function MessageThreadPanel({
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
     string | null
   >(null);
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    conversationId: string;
+    file: File;
+  } | null>(null);
+  const pendingAttachmentFile =
+    pendingAttachment && pendingAttachment.conversationId === selectedId
+      ? pendingAttachment.file
+      : null;
   const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
   const [savedReplySearch, setSavedReplySearch] = useState("");
 
@@ -421,12 +432,35 @@ export function MessageThreadPanel({
     }
   };
 
-  const submit = () => {
+  const submit = async () => {
     const text = draft.trim();
-    if (!text || !selectedId || sendMut.isPending) return;
-    sendMut.mutate(text);
-    setDraft("");
+    const file = pendingAttachmentFile;
+
+    if (
+      (!text && !file) ||
+      !selectedId ||
+      sendMut.isPending ||
+      uploadAttachmentMut.isPending
+    ) {
+      return;
+    }
+
     setSavedRepliesOpen(false);
+    if (text) setDraft("");
+
+    try {
+      if (text) {
+        await sendMut.mutateAsync(text);
+      }
+      if (file) {
+        await uploadAttachmentMut.mutateAsync(file);
+        setPendingAttachment((current) =>
+          current?.file === file ? null : current,
+        );
+      }
+    } catch {
+      // Individual mutations already surface safe error toasts.
+    }
   };
 
   const insertSavedReply = (reply: SavedReply) => {
@@ -779,6 +813,29 @@ export function MessageThreadPanel({
             </div>
           </div>
         )}
+        {pendingAttachmentFile && (
+          <div className="mb-3 flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-oc-border bg-oc-panel/55 p-3">
+            <Paperclip className="h-4 w-4 shrink-0 text-oc-faint" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-oc-text">
+                {pendingAttachmentFile.name}
+              </p>
+              <p className="text-xs text-oc-muted">
+                {formatFileSize(pendingAttachmentFile.size)} selected. Send to upload.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => setPendingAttachment(null)}
+              disabled={uploadAttachmentMut.isPending}
+            >
+              Remove
+            </Button>
+          </div>
+        )}
         <div className="flex items-end gap-2 sm:gap-3">
           <Textarea
             value={draft}
@@ -813,7 +870,9 @@ export function MessageThreadPanel({
                 disabled={uploadAttachmentMut.isPending || user?.role === "VIEWER"}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
-                  if (file) uploadAttachmentMut.mutate(file);
+                  if (file && selectedId) {
+                    setPendingAttachment({ conversationId: selectedId, file });
+                  }
                   event.currentTarget.value = "";
                 }}
               />
@@ -834,9 +893,13 @@ export function MessageThreadPanel({
               variant="primary"
               className="h-10 px-4"
               onClick={submit}
-              disabled={sendMut.isPending || !draft.trim()}
+              disabled={
+                sendMut.isPending ||
+                uploadAttachmentMut.isPending ||
+                (!draft.trim() && !pendingAttachmentFile)
+              }
             >
-              {sendMut.isPending ? (
+              {sendMut.isPending || uploadAttachmentMut.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 "Send"

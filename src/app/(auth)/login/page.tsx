@@ -8,7 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { fetchCurrentSession, loginApi } from "@/api/auth";
+import { loginApi } from "@/api/auth";
 import { getErrorMessage } from "@/api/errors";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
@@ -42,13 +42,8 @@ export default function LoginPage() {
   const onSubmit = form.handleSubmit(async (values) => {
     try {
       const data = await loginMut.mutateAsync(values);
-      const session = await fetchCurrentSession(data.accessToken);
-      setSession({
-        accessToken: data.accessToken,
-        user: session.user,
-        company: session.company,
-      });
-      toast.success(`Welcome back, ${session.user.firstName}`);
+      setSession(data);
+      toast.success(`Welcome back, ${data.user.firstName}`);
       router.replace("/inbox");
     } catch (err) {
       if (process.env.NODE_ENV === "development") {

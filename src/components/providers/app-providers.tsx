@@ -9,15 +9,8 @@ import { SocketProvider } from "@/components/providers/socket-provider";
 
 function AuthPersistGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    if (useAuthStore.persist.hasHydrated()) {
-      useAuthStore.getState().setHasHydrated(true);
-      return;
-    }
-    const unsub = useAuthStore.persist.onFinishHydration(() => {
-      useAuthStore.getState().setHasHydrated(true);
-    });
-    void useAuthStore.persist.rehydrate();
-    return unsub;
+    localStorage.removeItem("omnicore-auth");
+    useAuthStore.getState().setHasHydrated(true);
   }, []);
   return <>{children}</>;
 }

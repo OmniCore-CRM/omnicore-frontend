@@ -91,7 +91,7 @@ export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
 
   const logoutMut = useMutation({
     mutationFn: async () => {
-      if (token) await logoutApi(token);
+      await logoutApi(token);
     },
     onSettled: () => {
       clearSession();

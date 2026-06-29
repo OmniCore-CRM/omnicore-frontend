@@ -141,6 +141,8 @@ export default function CustomersPage() {
     placeholderData: (previous) => previous,
   });
 
+  const canLoadTagMetadata = Boolean(token) && !isLoading && !error;
+
   const {
     data: detail,
     isLoading: dLoading,
@@ -156,7 +158,7 @@ export default function CustomersPage() {
   const { data: tags = [] } = useQuery({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token!),
-    enabled: !!token,
+    enabled: canLoadTagMetadata,
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,

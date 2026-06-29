@@ -392,6 +392,8 @@ function TicketsWorkspace() {
     placeholderData: (previous) => previous,
   });
 
+  const canLoadMetadata = Boolean(token) && !isLoading && !error;
+
   const {
     data: ticket,
     isLoading: tLoading,
@@ -433,7 +435,7 @@ function TicketsWorkspace() {
   const { data: users = [] } = useQuery({
     queryKey: queryKeys.users,
     queryFn: () => listUsers(token!),
-    enabled: !!token,
+    enabled: canLoadMetadata,
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,
@@ -441,7 +443,7 @@ function TicketsWorkspace() {
   const { data: teams = [] } = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
-    enabled: !!token,
+    enabled: canLoadMetadata,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,
@@ -449,7 +451,7 @@ function TicketsWorkspace() {
   const { data: tags = [] } = useQuery({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token!),
-    enabled: !!token,
+    enabled: canLoadMetadata,
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,

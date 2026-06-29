@@ -131,6 +131,8 @@ export function MessageThreadPanel({
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
+  const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
+  const [savedReplySearch, setSavedReplySearch] = useState("");
   const router = useRouter();
   const bottomRef = useRef<HTMLDivElement>(null);
   const socketState = useSocketConnection();
@@ -157,7 +159,7 @@ export function MessageThreadPanel({
   const savedRepliesQuery = useQuery({
     queryKey: queryKeys.savedReplies(),
     queryFn: () => listSavedReplies(token!),
-    enabled: !!token && !!selectedId,
+    enabled: !!token && !!selectedId && savedRepliesOpen,
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,
@@ -378,9 +380,6 @@ export function MessageThreadPanel({
     pendingAttachment && pendingAttachment.conversationId === selectedId
       ? pendingAttachment.file
       : null;
-  const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
-  const [savedReplySearch, setSavedReplySearch] = useState("");
-
   const filteredSavedReplies = useMemo(() => {
     const replies = savedRepliesQuery.data ?? [];
     const needle = savedReplySearch.trim().toLowerCase();

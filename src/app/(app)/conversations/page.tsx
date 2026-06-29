@@ -107,10 +107,13 @@ export default function ConversationsPage() {
     staleTime: 60_000,
     placeholderData: (previous) => previous,
   });
+
+  const canLoadUsers = Boolean(token) && !conversationsQuery.isLoading && !conversationsQuery.error;
+
   const usersQuery = useQuery({
     queryKey: queryKeys.users,
     queryFn: () => listUsers(token!),
-    enabled: !!token,
+    enabled: canLoadUsers,
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,

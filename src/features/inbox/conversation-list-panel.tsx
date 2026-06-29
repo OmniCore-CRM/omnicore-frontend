@@ -153,10 +153,13 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
       return { ...page, items };
     },
   });
+
+  const canLoadFilterMetadata = Boolean(token) && !isLoading && !error;
+
   const { data: teams = [] } = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
-    enabled: !!token,
+    enabled: canLoadFilterMetadata,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,
@@ -164,7 +167,7 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
   const { data: tags = [] } = useQuery({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token!),
-    enabled: !!token,
+    enabled: canLoadFilterMetadata,
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,

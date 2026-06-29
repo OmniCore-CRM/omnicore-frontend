@@ -199,9 +199,12 @@ export default function SettingsPage() {
   const token = useAuthStore((s) => s.accessToken);
   const queryClient = useQueryClient();
   const widgetQuery = useQuery({
-    queryKey: ["widget-installations"],
+    queryKey: queryKeys.widgetInstallations,
     queryFn: () => listWidgetInstallations(token ?? ""),
-    enabled: Boolean(token),
+    enabled: Boolean(token) && tab === "Widget",
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const installation = widgetQuery.data?.[0] ?? null;
   const [domainDraft, setDomainDraft] = useState<string | null>(null);
@@ -213,7 +216,7 @@ export default function SettingsPage() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["widget-installations"],
+        queryKey: queryKeys.widgetInstallations,
       });
       toast.success("Widget installation created");
     },
@@ -227,7 +230,7 @@ export default function SettingsPage() {
       updateWidgetInstallation(token ?? "", installation!.id, body),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["widget-installations"],
+        queryKey: queryKeys.widgetInstallations,
       });
       toast.success("Widget settings updated");
     },
@@ -566,6 +569,9 @@ function EmailChannelsSettings({
     queryKey: queryKeys.emailAccounts,
     queryFn: () => listEmailAccounts(token),
     enabled: Boolean(token),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const [editing, setEditing] = useState<EmailAccount | null>(null);
   const [fromEmail, setFromEmail] = useState("");
@@ -780,6 +786,9 @@ function SlaPoliciesSettings({
     queryKey: queryKeys.slaPolicies,
     queryFn: () => listSlaPolicies(token),
     enabled: Boolean(token),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const policies = policiesQuery.data ?? [];
 
@@ -1026,16 +1035,25 @@ function AssignmentRulesSettings({
     queryKey: queryKeys.assignmentRules,
     queryFn: () => listAssignmentRules(token),
     enabled: Boolean(token),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const teamsQuery = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token),
     enabled: Boolean(token),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const tagsQuery = useQuery({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token),
     enabled: Boolean(token),
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const rules = rulesQuery.data ?? [];
   const teams = teamsQuery.data ?? [];
@@ -1372,12 +1390,17 @@ function AuditLogsSettings({ token }: { token: string }) {
     ),
     queryFn: () => listAuditLogs(token, params),
     enabled: Boolean(token),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
   });
 
   const usersQuery = useQuery({
-    queryKey: ["users"],
+    queryKey: queryKeys.users,
     queryFn: () => listUsers(token),
     enabled: Boolean(token),
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
 
   const logs = auditQuery.data?.items ?? [];
@@ -1600,6 +1623,9 @@ function SavedRepliesSettings({
     queryKey: queryKeys.savedReplies(),
     queryFn: () => listSavedReplies(token),
     enabled: Boolean(token),
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
 
   const replies = useMemo(() => repliesQuery.data ?? [], [repliesQuery.data]);
@@ -1625,7 +1651,7 @@ function SavedRepliesSettings({
     onSuccess: async () => {
       resetForm();
       await queryClient.invalidateQueries({
-        queryKey: ["saved-replies"],
+        queryKey: queryKeys.savedReplies(),
       });
       toast.success("Saved reply created");
     },
@@ -1639,7 +1665,7 @@ function SavedRepliesSettings({
     onSuccess: async () => {
       resetForm();
       await queryClient.invalidateQueries({
-        queryKey: ["saved-replies"],
+        queryKey: queryKeys.savedReplies(),
       });
       toast.success("Saved reply updated");
     },
@@ -1653,7 +1679,7 @@ function SavedRepliesSettings({
     onSuccess: async () => {
       if (editingId) resetForm();
       await queryClient.invalidateQueries({
-        queryKey: ["saved-replies"],
+        queryKey: queryKeys.savedReplies(),
       });
       toast.success("Saved reply deleted");
     },
@@ -1858,6 +1884,9 @@ function TagsSettings({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token),
     enabled: Boolean(token),
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
 
   const tags = useMemo(() => tagsQuery.data ?? [], [tagsQuery.data]);

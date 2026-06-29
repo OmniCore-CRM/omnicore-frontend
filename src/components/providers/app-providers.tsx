@@ -25,6 +25,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             gcTime: 5 * 60_000,
             retry: 1,
             refetchOnWindowFocus: false,
+            refetchOnReconnect: false,
           },
         },
       }),

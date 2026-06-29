@@ -158,13 +158,17 @@ export function MessageThreadPanel({
     queryKey: queryKeys.savedReplies(),
     queryFn: () => listSavedReplies(token!),
     enabled: !!token && !!selectedId,
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const teamsQuery = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
     enabled: !!token && !!selectedId,
-    staleTime: 2 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 export const queryKeys = {
   me: ["me"] as const,
+  users: ["users"] as const,
   conversations: (params: Record<string, string | undefined>) =>
     ["conversations", params] as const,
   conversation: (id: string) => ["conversation", id] as const,
@@ -21,4 +22,5 @@ export const queryKeys = {
   slaPolicies: ["sla-policies"] as const,
   assignmentRules: ["assignment-rules"] as const,
   emailAccounts: ["email-accounts"] as const,
+  widgetInstallations: ["widget-installations"] as const,
 };

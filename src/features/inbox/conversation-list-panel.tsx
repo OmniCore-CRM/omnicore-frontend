@@ -157,13 +157,17 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
     enabled: !!token,
-    staleTime: 2 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const { data: tags = [] } = useQuery({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token!),
     enabled: !!token,
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
 
   return (

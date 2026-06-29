@@ -431,22 +431,28 @@ function TicketsWorkspace() {
   }, [qc, selectedId, socket]);
 
   const { data: users = [] } = useQuery({
-    queryKey: ["users"],
+    queryKey: queryKeys.users,
     queryFn: () => listUsers(token!),
     enabled: !!token,
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const { data: teams = [] } = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
     enabled: !!token,
-    staleTime: 2 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
   const { data: tags = [] } = useQuery({
     queryKey: queryKeys.tags(),
     queryFn: () => listTags(token!),
     enabled: !!token,
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
   });
 
   const { data: notes = [] } = useQuery({

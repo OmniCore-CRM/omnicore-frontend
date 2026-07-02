@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
-  getConversation,
   listMessages,
   patchConversation,
   sendMessage,
@@ -22,6 +21,7 @@ import { queryKeys } from "@/constants/query-keys";
 import { useConversationPresence } from "@/hooks/use-conversation-presence";
 import { useConversationRoom } from "@/hooks/use-conversation-room";
 import { useSocketConnection } from "@/hooks/use-socket-connection";
+import { useSelectedConversationQuery } from "@/features/inbox/use-selected-conversation-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { useInboxStore } from "@/stores/inbox-store";
 import { Badge } from "@/components/ui/badge";
@@ -136,23 +136,35 @@ export function MessageThreadPanel({
   const router = useRouter();
   const bottomRef = useRef<HTMLDivElement>(null);
   const socketState = useSocketConnection();
+  const previousSelectedIdRef = useRef<string | null>(null);
 
-  const { data: conversation, isLoading: convLoading } = useQuery({
-    queryKey: queryKeys.conversation(selectedId ?? "_"),
-    queryFn: () => getConversation(token!, selectedId!),
-    enabled: !!token && !!selectedId,
-    staleTime: 30_000,
-  });
+  const { data: conversation, isLoading: convLoading } =
+    useSelectedConversationQuery(token, selectedId);
 
   const qc = useQueryClient();
   const { peerTyping, emitTyping } = useConversationPresence(selectedId);
   useConversationRoom(selectedId);
   const lastTypingEmit = useRef(0);
+  const selectedIdForMessages = useDeferredValue(selectedId);
+
+  useEffect(() => {
+    const previousSelectedId = previousSelectedIdRef.current;
+    if (previousSelectedId && previousSelectedId !== selectedId) {
+      void qc.cancelQueries({
+        queryKey: queryKeys.messages(previousSelectedId),
+      });
+      void qc.cancelQueries({
+        queryKey: queryKeys.conversation(previousSelectedId),
+      });
+    }
+
+    previousSelectedIdRef.current = selectedId ?? null;
+  }, [qc, selectedId]);
 
   const messagesQuery = useQuery({
-    queryKey: queryKeys.messages(selectedId ?? "_"),
-    queryFn: () => listMessages(token!, selectedId!, { limit: 80 }),
-    enabled: !!token && !!selectedId,
+    queryKey: queryKeys.messages(selectedIdForMessages ?? "_"),
+    queryFn: () => listMessages(token!, selectedIdForMessages!, { limit: 80 }),
+    enabled: !!token && !!selectedIdForMessages,
     staleTime: 10_000,
   });
 

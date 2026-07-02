@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getConversation } from "@/api/conversations";
 import { getCustomer } from "@/api/customers";
 import { queryKeys } from "@/constants/query-keys";
+import { useSelectedConversationQuery } from "@/features/inbox/use-selected-conversation-query";
 import { useAuthStore } from "@/stores/auth-store";
 import { useInboxStore } from "@/stores/inbox-store";
 import { Avatar } from "@/components/ui/avatar";
@@ -29,11 +29,8 @@ export function CustomerInspectorPanel({
   const token = useAuthStore((s) => s.accessToken);
   const selectedId = useInboxStore((s) => s.selectedConversationId);
 
-  const { data: conversation, isLoading: cLoading } = useQuery({
-    queryKey: queryKeys.conversation(selectedId ?? "_"),
-    queryFn: () => getConversation(token!, selectedId!),
-    enabled: !!token && !!selectedId,
-  });
+  const { data: conversation, isLoading: cLoading } =
+    useSelectedConversationQuery(token, selectedId);
 
   const customerId = conversation?.customerId;
 

@@ -52,6 +52,7 @@ export function AppSidebar({
         {!compact && (
           <Link
             href="/inbox"
+            prefetch={false}
             onClick={onNavigate}
             className="flex min-w-0 items-center gap-3 rounded-lg px-1 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent"
           >
@@ -71,6 +72,7 @@ export function AppSidebar({
         {compact && (
           <Link
             href="/inbox"
+            prefetch={false}
             className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-oc-panel ring-1 ring-oc-border focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent"
             aria-label="OmniCore home"
           >
@@ -124,6 +126,7 @@ export function AppSidebar({
             <Link
               key={href}
               href={href}
+              prefetch={false}
               title={compact ? label : undefined}
               onClick={onNavigate}
               className={cn(

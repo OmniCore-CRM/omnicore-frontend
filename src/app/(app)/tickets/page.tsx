@@ -16,8 +16,6 @@ import {
   createTicketNote,
   createTicket,
   getTicket,
-  listTicketActivity,
-  listTicketNotes,
   listTickets,
   updateTicket,
 } from "@/api/tickets";
@@ -457,19 +455,8 @@ function TicketsWorkspace() {
     refetchOnMount: false,
   });
 
-  const { data: notes = [] } = useQuery({
-    queryKey: ["ticket-notes", selectedId ?? "_"],
-    queryFn: () => listTicketNotes(token!, selectedId!),
-    enabled: !!token && !!selectedId,
-    staleTime: 30_000,
-  });
-
-  const { data: activity = [] } = useQuery({
-    queryKey: ["ticket-activity", selectedId ?? "_"],
-    queryFn: () => listTicketActivity(token!, selectedId!),
-    enabled: !!token && !!selectedId,
-    staleTime: 30_000,
-  });
+  const notes = ticket?.notes ?? [];
+  const activity = ticket?.activities ?? [];
 
   const createMut = useMutation({
     mutationFn: () =>

@@ -29,12 +29,17 @@ export function InboxView() {
 
   useEffect(() => {
     if (!token || !selectedId) return;
-    
+
+    // Defer non-critical read acknowledgment to keep conversation opening responsive.
+    const timeoutId = setTimeout(() => {
+      void markConversationRead(token, selectedId).catch(() => {
+        /* optional route — ignore if backend does not implement */
+      });
+    }, 1200);
+
     // Mark active conversation as read when opened.
     // Backend route is optional during MVP stage.
-    void markConversationRead(token, selectedId).catch(() => {
-      /* optional route — ignore if backend does not implement */
-    });
+    return () => clearTimeout(timeoutId);
   }, [token, selectedId]);
 
   return (

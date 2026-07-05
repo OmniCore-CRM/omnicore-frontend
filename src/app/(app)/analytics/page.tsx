@@ -416,15 +416,15 @@ export default function AnalyticsPage() {
   });
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-6">
-      <div className="mx-auto max-w-[1600px] space-y-6">
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="h-full overflow-y-auto p-3 md:p-4">
+      <div className="mx-auto max-w-[1600px] space-y-4">
+        <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm text-oc-accent-2">
               <Inbox className="h-4 w-4" />
               Support operations
             </div>
-            <h1 className="mt-2 text-2xl font-semibold text-oc-text">
+            <h1 className="mt-1.5 text-xl font-semibold text-oc-text">
               Analytics dashboard
             </h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-oc-muted">
@@ -444,7 +444,7 @@ export default function AnalyticsPage() {
                 type="button"
                 aria-pressed={range === option.value}
                 onClick={() => setRange(option.value)}
-                className={`min-h-10 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent ${
+                className={`h-9 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent ${
                   range === option.value
                     ? "bg-oc-accent text-white"
                     : "text-oc-muted hover:bg-oc-elevated hover:text-oc-text"

@@ -168,17 +168,17 @@ export default function CustomersPage() {
     <div className="flex h-full min-h-0 overflow-hidden bg-oc-bg">
       <section
         className={cn(
-          "min-h-0 min-w-0 flex-col border-oc-border bg-oc-bg-mid/90 md:flex md:w-[360px] md:shrink-0 md:border-r xl:w-[410px]",
+          "min-h-0 min-w-0 flex-col border-oc-border bg-oc-bg-mid/90 md:flex md:w-[340px] md:shrink-0 md:border-r xl:w-[390px]",
           selectedId ? "hidden md:flex" : "flex flex-1",
         )}
       >
-        <div className="shrink-0 border-b border-oc-border p-4 md:p-5">
+        <div className="shrink-0 border-b border-oc-border p-3.5 md:p-4">
           <p className="text-xs font-semibold uppercase text-oc-faint">
             CRM records
           </p>
           <div className="mt-1 flex items-end justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold text-oc-text">Customers</h1>
+              <h1 className="text-lg font-semibold text-oc-text">Customers</h1>
               <p className="mt-1 text-sm text-oc-muted">
                 Customer identity and support history.
               </p>
@@ -197,7 +197,7 @@ export default function CustomersPage() {
                 resetPagination();
               }}
               placeholder="Search name, email, or phone..."
-              className="h-11 pl-10"
+              className="h-10 pl-10"
             />
           </label>
           <div className="mt-3 grid gap-2 sm:grid-cols-3 md:grid-cols-1 xl:grid-cols-3">
@@ -252,7 +252,7 @@ export default function CustomersPage() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
           {isLoading && (
             <div className="space-y-2">
               {Array.from({ length: 7 }).map((_, index) => (
@@ -317,7 +317,7 @@ export default function CustomersPage() {
 
       <section
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto p-4 md:p-6 xl:p-8",
+          "min-h-0 flex-1 overflow-y-auto p-3 md:p-4 xl:p-6",
           !selectedId && "hidden md:block",
         )}
       >
@@ -337,7 +337,7 @@ export default function CustomersPage() {
         )}
 
         {selectedId && (
-          <div className="mx-auto max-w-6xl space-y-5">
+          <div className="mx-auto max-w-7xl space-y-4">
             <Button
               type="button"
               variant="ghost"

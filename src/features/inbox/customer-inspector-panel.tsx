@@ -45,7 +45,7 @@ export function CustomerInspectorPanel({
     return (
       <aside
         className={cn(
-          "hidden min-h-0 w-[280px] shrink-0 border-l border-oc-border bg-oc-bg-mid/50 xl:flex xl:flex-col xl:items-center xl:justify-center xl:p-5",
+          "hidden min-h-0 w-[260px] shrink-0 border-l border-oc-border bg-oc-bg-mid/50 xl:flex xl:flex-col xl:items-center xl:justify-center xl:p-4",
           desktopCollapsed && "xl:hidden",
         )}
       >
@@ -72,7 +72,7 @@ export function CustomerInspectorPanel({
 
   const content = (
     <>
-      <div className="shrink-0 border-b border-oc-border p-4">
+      <div className="shrink-0 border-b border-oc-border p-3">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
             Customer
@@ -82,13 +82,12 @@ export function CustomerInspectorPanel({
               type="button"
               variant="ghost"
               size="sm"
-              className="hidden h-9 gap-1.5 px-2 text-xs xl:inline-flex"
+              className="hidden h-8 w-8 px-0 xl:inline-flex"
               onClick={onToggleDesktop}
               aria-label="Hide customer details"
               title="Hide customer details"
             >
               <PanelRightClose className="h-4 w-4" />
-              <span>Hide</span>
             </Button>
           )}
           {onCloseMobile && (
@@ -115,9 +114,9 @@ export function CustomerInspectorPanel({
             <Avatar
               src={customer?.avatarUrl || conversation?.customer?.avatarUrl}
               name={display}
-              size={64}
+              size={56}
             />
-            <p className="mt-3 text-base font-semibold text-oc-text">
+            <p className="mt-2.5 text-sm font-semibold text-oc-text">
               {display}
             </p>
             <p className="text-sm text-oc-muted">{customer?.email || "—"}</p>
@@ -126,8 +125,8 @@ export function CustomerInspectorPanel({
         )}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-        <Card className="space-y-2 p-4">
+      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
+        <Card className="space-y-2 p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
             Contact
           </p>
@@ -147,7 +146,7 @@ export function CustomerInspectorPanel({
           </dl>
         </Card>
 
-        <Card className="space-y-2 p-4">
+        <Card className="space-y-2 p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
             Tags
           </p>
@@ -156,7 +155,7 @@ export function CustomerInspectorPanel({
           </div>
         </Card>
 
-        <Card className="space-y-2 p-4">
+        <Card className="space-y-2 p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
             Channels
           </p>
@@ -179,7 +178,7 @@ export function CustomerInspectorPanel({
           )}
         </Card>
 
-        <Card className="space-y-2 p-4">
+        <Card className="space-y-2 p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
             Activity
           </p>
@@ -205,7 +204,7 @@ export function CustomerInspectorPanel({
   return (
     <>
       {desktopCollapsed ? (
-        <aside className="hidden min-h-0 w-11 shrink-0 flex-col items-center border-l border-oc-border bg-oc-bg-mid/70 py-3 xl:flex">
+        <aside className="hidden min-h-0 w-10 shrink-0 flex-col items-center border-l border-oc-border bg-oc-bg-mid/70 py-2 xl:flex">
           <Button
             type="button"
             variant="ghost"
@@ -219,7 +218,7 @@ export function CustomerInspectorPanel({
           </Button>
         </aside>
       ) : (
-        <aside className="hidden min-h-0 w-[280px] shrink-0 flex-col border-l border-oc-border bg-oc-bg-mid/50 xl:flex">
+        <aside className="hidden min-h-0 w-[260px] shrink-0 flex-col border-l border-oc-border bg-oc-bg-mid/50 xl:flex">
           {content}
         </aside>
       )}
@@ -234,7 +233,7 @@ export function CustomerInspectorPanel({
           />
           <aside
             className={cn(
-              "absolute right-0 top-0 flex h-full w-[min(92vw,380px)] flex-col border-l border-oc-border bg-oc-bg-mid shadow-2xl shadow-black/40",
+              "absolute right-0 top-0 flex h-full w-[min(90vw,340px)] flex-col border-l border-oc-border bg-oc-bg-mid shadow-2xl shadow-black/40",
             )}
           >
             {content}

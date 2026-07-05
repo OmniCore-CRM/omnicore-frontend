@@ -30,8 +30,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <AppTopbar onMenuClick={() => setMobileNavOpen(true)} />
-        <main className="min-h-0 flex-1 overflow-hidden bg-gradient-to-b from-oc-bg via-oc-bg to-oc-bg-mid p-3 sm:p-4 lg:p-5">
-          <div className="h-full min-h-0 overflow-hidden rounded-xl border border-oc-border/70 bg-oc-bg-mid/60 shadow-oc-card">
+        <main className="min-h-0 flex-1 overflow-hidden bg-gradient-to-b from-oc-bg via-oc-bg to-oc-bg-mid p-2.5 sm:p-3 lg:p-4">
+          <div className="h-full min-h-0 overflow-hidden rounded-lg border border-oc-border/70 bg-oc-bg-mid/60 shadow-oc-card">
             {children}
           </div>
         </main>

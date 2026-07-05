@@ -264,7 +264,7 @@ const initials = (value: string) =>
     .join("") || "OC";
 
 const fieldControlClass =
-  "mt-2 h-11 w-full min-w-0 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
+  "mt-1.5 h-10 w-full min-w-0 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent";
 
 const buildTicketSummary = (tickets: Ticket[], total?: number) => ({
   total: total ?? tickets.length,
@@ -572,16 +572,16 @@ function TicketsWorkspace() {
     <div className="flex h-full min-h-0 overflow-hidden bg-oc-bg">
       <section
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-6 md:py-6 xl:px-8 xl:py-7",
+          "min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-4 md:py-4 xl:px-6 xl:py-5",
           selectedId && "hidden lg:block",
         )}
       >
-        <header className="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <header className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase text-oc-faint">
               Support operations
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-oc-text">
+            <h1 className="mt-1.5 text-2xl font-semibold tracking-normal text-oc-text">
               Support Tickets
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-oc-muted">
@@ -592,15 +592,15 @@ function TicketsWorkspace() {
             type="button"
             disabled={!canMutate}
             onClick={() => setCreating((current) => !current)}
-            className="h-11 w-full gap-2 px-5 sm:w-auto"
+            className="h-10 w-full gap-2 px-4 sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             {creating ? "Close form" : "New ticket"}
           </Button>
         </header>
 
-        <Card className="mb-5 overflow-hidden p-4 md:p-5">
-          <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
+        <Card className="mb-4 overflow-hidden p-3 md:p-4">
+          <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between">
             <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8">
               <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint sm:col-span-2 xl:col-span-1">
                 Search
@@ -613,7 +613,7 @@ function TicketsWorkspace() {
                       resetPagination();
                     }}
                     placeholder="Search tickets, customers, or IDs..."
-                    className="h-11 pl-10"
+                    className="h-10 pl-10"
                     aria-label="Search tickets"
                   />
                 </span>
@@ -1075,7 +1075,7 @@ function TicketRow({
           "bg-oc-panel/75 shadow-[inset_3px_0_0_rgba(196,181,253,0.9)]",
       )}
     >
-      <td className="px-3 py-5">
+      <td className="px-3 py-3.5">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold leading-6 text-oc-text">
             {ticket.subject}
@@ -1087,13 +1087,13 @@ function TicketRow({
           </p>
           <Badge
             tone={slaTone(ticket.slaStatus)}
-            className="mt-2 px-2 py-0.5 normal-case"
+            className="mt-1.5 px-2 py-0.5 normal-case"
           >
             SLA {ticket.slaStatus.replace("_", " ")}
           </Badge>
         </div>
       </td>
-      <td className="min-w-0 px-4 py-5">
+      <td className="min-w-0 px-3 py-3.5">
         <div className="flex min-w-0 overflow-hidden">
           <Badge
             tone={statusTone(ticket.status)}
@@ -1104,7 +1104,7 @@ function TicketRow({
           </Badge>
         </div>
       </td>
-      <td className="min-w-0 px-4 py-5">
+      <td className="min-w-0 px-3 py-3.5">
         <div className="flex min-w-0 overflow-hidden">
           <Badge
             tone={priorityTone(ticket.priority)}
@@ -1114,9 +1114,9 @@ function TicketRow({
           </Badge>
         </div>
       </td>
-      <td className="px-4 py-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-oc-border bg-oc-panel text-xs font-semibold text-oc-text">
+      <td className="px-3 py-3.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-oc-border bg-oc-panel text-xs font-semibold text-oc-text">
             {initials(displayCustomer(ticket))}
           </span>
           <span className="truncate text-sm font-medium text-oc-text">
@@ -1124,8 +1124,8 @@ function TicketRow({
           </span>
         </div>
       </td>
-      <td className="px-4 py-5">
-        <div className="flex min-w-0 items-center gap-3">
+      <td className="px-3 py-3.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-oc-border bg-oc-bg text-[11px] font-semibold text-oc-muted">
             {ticket.assignee ? initials(displayAssignee(ticket.assignee)) : "—"}
           </span>
@@ -1140,10 +1140,10 @@ function TicketRow({
           </span>
         </div>
       </td>
-      <td className="px-3 py-5 text-sm text-oc-muted">
+      <td className="px-3 py-3.5 text-sm text-oc-muted">
         {ticket.updatedAt ? formatRelative(ticket.updatedAt) : "—"}
       </td>
-      <td className="px-4 py-5 text-right">
+      <td className="px-3 py-3.5 text-right">
         <Button
           type="button"
           variant="secondary"
@@ -1152,11 +1152,10 @@ function TicketRow({
             event.stopPropagation();
             onSelect();
           }}
-          className="h-9 gap-2 px-3"
+          className="h-8 w-8 px-0"
           aria-label={`View details for ${ticket.subject}`}
         >
           <Eye className="h-4 w-4" />
-          View
         </Button>
       </td>
     </tr>
@@ -1255,13 +1254,13 @@ function TicketSummaryStrip({
   ] as const;
 
   return (
-    <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="mb-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
       {items.map(([label, value]) => (
-        <Card key={label} className="p-4">
+        <Card key={label} className="p-3.5">
           <p className="text-xs font-semibold uppercase text-oc-faint">
             {label}
           </p>
-          <p className="mt-2 text-2xl font-semibold text-oc-text">
+          <p className="mt-1.5 text-xl font-semibold text-oc-text">
             {loading ? "..." : value}
           </p>
         </Card>

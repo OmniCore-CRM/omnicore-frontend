@@ -107,23 +107,23 @@ export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
     "Agent";
 
   return (
-    <header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-oc-border bg-oc-bg/95 px-3 backdrop-blur sm:px-4 lg:px-5">
+    <header className="flex min-h-14 shrink-0 items-center gap-2.5 border-b border-oc-border bg-oc-bg/95 px-2.5 backdrop-blur sm:px-3 lg:px-4">
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="h-10 w-10 shrink-0 px-0 lg:hidden"
+        className="h-9 w-9 shrink-0 px-0 lg:hidden"
         onClick={onMenuClick}
         aria-label="Open navigation"
       >
-        <Menu className="h-5 w-5" />
+        <Menu className="h-4 w-4" />
       </Button>
 
       <div className="min-w-0 flex-1">
         <p className="hidden text-xs font-medium text-oc-faint sm:block">
           {page.eyebrow}
         </p>
-        <h1 className="truncate text-base font-semibold text-oc-text sm:text-lg">
+        <h1 className="truncate text-base font-semibold text-oc-text">
           {page.title}
         </h1>
       </div>
@@ -131,7 +131,7 @@ export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
         <ConnectionPill state={socketState} />
 
-        <div className="hidden items-center gap-2 rounded-xl border border-oc-border bg-oc-panel px-3 py-2.5 xl:flex">
+        <div className="hidden items-center gap-2 rounded-xl border border-oc-border bg-oc-panel px-2.5 py-2 xl:flex">
           <span className="text-xs font-medium text-oc-faint">
             Company
           </span>
@@ -141,7 +141,7 @@ export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
           </span>
         </div>
 
-        <div className="flex min-w-0 items-center gap-2 rounded-xl border border-oc-border bg-oc-panel px-2 py-1.5 sm:px-2.5">
+        <div className="flex min-w-0 items-center gap-2 rounded-xl border border-oc-border bg-oc-panel px-2 py-1.5 sm:px-2">
           <Avatar src={user?.avatarUrl} name={display} size={32} />
           <div className="hidden min-w-0 flex-col sm:flex">
             <span className="max-w-[150px] truncate text-sm font-semibold text-oc-text">
@@ -155,7 +155,7 @@ export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-9 w-9 shrink-0 px-0"
+            className="h-8 w-8 shrink-0 px-0"
             onClick={() => logoutMut.mutate()}
             disabled={logoutMut.isPending}
             aria-label="Sign out"

@@ -126,11 +126,11 @@ export default function ConversationsPage() {
   const resetPagination = () => setCursor(undefined);
 
   return (
-    <div className="h-full overflow-y-auto p-4 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-5">
+    <div className="h-full overflow-y-auto p-3 md:p-4">
+      <div className="mx-auto max-w-[92rem] space-y-4">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-normal text-oc-text">
+            <h1 className="text-xl font-semibold tracking-normal text-oc-text">
               Conversations
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-oc-muted">
@@ -145,7 +145,7 @@ export default function ConversationsPage() {
           </Link>
         </header>
 
-        <Card className="p-4 md:p-5">
+        <Card className="p-3 md:p-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <label className="block min-w-0 text-xs font-semibold uppercase text-oc-faint md:col-span-2">
               Search customer
@@ -230,13 +230,13 @@ export default function ConversationsPage() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-oc-border bg-oc-bg/60 text-[11px] uppercase tracking-wide text-oc-faint">
               <tr>
-                <th className="px-5 py-4 font-medium">Customer</th>
-                <th className="px-5 py-4 font-medium">Channel</th>
-                <th className="px-5 py-4 font-medium">Ticket</th>
-                <th className="px-5 py-4 font-medium">Priority</th>
-                <th className="px-5 py-4 font-medium">Assignee</th>
-                <th className="px-5 py-4 font-medium">Updated</th>
-                <th className="px-5 py-4 font-medium" />
+                <th className="px-4 py-3 font-medium">Customer</th>
+                <th className="px-4 py-3 font-medium">Channel</th>
+                <th className="px-4 py-3 font-medium">Ticket</th>
+                <th className="px-4 py-3 font-medium">Priority</th>
+                <th className="px-4 py-3 font-medium">Assignee</th>
+                <th className="px-4 py-3 font-medium">Updated</th>
+                <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody>

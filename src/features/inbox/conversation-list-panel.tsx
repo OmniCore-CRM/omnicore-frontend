@@ -176,17 +176,17 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
   return (
     <section
       className={cn(
-        "h-full min-h-0 min-w-0 flex-col border-oc-border bg-oc-bg-mid/90 md:flex md:w-[330px] md:shrink-0 md:border-r xl:w-[380px]",
+        "h-full min-h-0 min-w-0 flex-col border-oc-border bg-oc-bg-mid/90 md:flex md:w-[300px] md:shrink-0 md:border-r xl:w-[340px]",
         selected ? "hidden md:flex" : "flex flex-1",
       )}
     >
-      <div className="shrink-0 border-b border-oc-border p-4">
+      <div className="shrink-0 border-b border-oc-border p-3">
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-oc-faint">
               Unified Inbox
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-oc-text">
+            <h2 className="mt-1 text-base font-semibold text-oc-text">
               Conversations
             </h2>
           </div>
@@ -214,7 +214,7 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
                 resetPagination();
               }}
               className={cn(
-                "min-h-8 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
+                "h-7 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
                 inboxStatusFilter === key
                   ? "bg-oc-panel text-oc-accent-2 ring-1 ring-violet-500/35"
                   : "text-oc-muted hover:bg-oc-panel hover:text-oc-text",
@@ -241,7 +241,7 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
                 resetPagination();
               }}
               className={cn(
-                "min-h-8 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
+                "h-7 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
                 inboxFilter === key
                   ? "bg-oc-panel text-oc-accent-2 ring-1 ring-violet-500/35"
                   : "text-oc-muted hover:bg-oc-panel hover:text-oc-text",
@@ -258,7 +258,7 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
             resetPagination();
           }}
           placeholder="Search conversations…"
-          className="mt-3 h-10 text-sm"
+          className="mt-2.5 h-9 text-sm"
         />
         <div className="mt-2 grid grid-cols-2 gap-2">
           <label className="min-w-0 text-xs font-medium text-oc-faint">
@@ -269,7 +269,7 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
                 setInboxTeamFilter(event.target.value);
                 resetPagination();
               }}
-              className="mt-1 h-10 w-full min-w-0 rounded-xl border border-oc-border bg-oc-panel px-2 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+              className="mt-1 h-9 w-full min-w-0 rounded-lg border border-oc-border bg-oc-panel px-2 text-xs text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
             >
               <option value="">All teams</option>
               {teams.map((team) => (
@@ -285,7 +285,7 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
                 setInboxTagFilter(event.target.value);
                 resetPagination();
               }}
-              className="mt-1 h-10 w-full min-w-0 rounded-xl border border-oc-border bg-oc-panel px-2 text-sm text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+              className="mt-1 h-9 w-full min-w-0 rounded-lg border border-oc-border bg-oc-panel px-2 text-xs text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
             >
               <option value="">All tags</option>
               {tags.map((tag) => (
@@ -296,7 +296,7 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
         {isLoading && (
           <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -318,7 +318,7 @@ export function ConversationListPanel({ selected }: { selected: boolean }) {
           />
         ))}
         {!isLoading && !error && data?.items.length === 0 && (
-          <div className="m-2 rounded-lg border border-dashed border-oc-border bg-oc-panel/30 p-6 text-center">
+          <div className="m-1.5 rounded-lg border border-dashed border-oc-border bg-oc-panel/30 p-4 text-center">
             <p className="text-sm font-medium text-oc-text">
               No conversations here
             </p>
@@ -392,11 +392,11 @@ function ConversationRow({
       type="button"
       onClick={onSelect}
       className={cn(
-        "mb-2 flex w-full gap-3 rounded-xl border border-oc-border/60 bg-oc-bg-mid/60 px-3 py-3 text-left transition-colors hover:bg-oc-panel/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
+        "mb-1.5 flex w-full gap-2.5 rounded-xl border border-oc-border/60 bg-oc-bg-mid/60 px-2.5 py-2.5 text-left transition-colors hover:bg-oc-panel/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent",
         active && "bg-oc-panel ring-1 ring-inset ring-violet-500/35",
       )}
     >
-      <Avatar src={customer?.avatarUrl} name={name} size={40} />
+      <Avatar src={customer?.avatarUrl} name={name} size={36} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="truncate text-sm font-semibold text-oc-text">
@@ -417,7 +417,7 @@ function ConversationRow({
         <p className="mt-1 truncate text-xs text-oc-faint">
           {ownership || "Unassigned"}
         </p>
-        <p className="mt-2 line-clamp-2 text-sm leading-5 text-oc-muted">
+        <p className="mt-1.5 line-clamp-2 text-sm leading-5 text-oc-muted">
           {preview}
         </p>
       </div>

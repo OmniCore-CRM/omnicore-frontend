@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
@@ -592,8 +593,11 @@ function CompanyUsersSettings({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
   const [role, setRole] = useState<UserRole>(allowedRoles[0] ?? "AGENT");
   const [status, setStatus] = useState<UserLifecycleStatus>("INVITED");
+
+  const actionButtonClass = "h-8 px-2.5 text-xs cursor-pointer disabled:cursor-not-allowed";
 
   const usersQuery = useQuery({
     queryKey: queryKeys.users,
@@ -613,6 +617,7 @@ function CompanyUsersSettings({
     setLastName("");
     setEmail("");
     setPassword("");
+    setShowTemporaryPassword(false);
     setRole(allowedRoles[0] ?? "AGENT");
     setStatus("INVITED");
   };
@@ -620,12 +625,20 @@ function CompanyUsersSettings({
   const upsertMutation = useMutation({
     mutationFn: async () => {
       if (editingUserId) {
-        return updateUser(token, editingUserId, {
+        const existing = (usersQuery.data ?? []).find((item) => item.id === editingUserId);
+
+        const updated = await updateUser(token, editingUserId, {
           firstName,
           lastName,
           email,
           role,
         });
+
+        if (existing && (existing.status ?? "ACTIVE") !== status) {
+          await updateUserStatus(token, editingUserId, status);
+        }
+
+        return updated;
       }
 
       return createUser(token, {
@@ -663,6 +676,14 @@ function CompanyUsersSettings({
       toast.error(getErrorMessage(error, "Could not update user status"));
     },
   });
+
+  const isStatusActionLoading = (
+    userId: string,
+    nextStatus: UserLifecycleStatus,
+  ) =>
+    statusMutation.isPending &&
+    statusMutation.variables?.userId === userId &&
+    statusMutation.variables?.nextStatus === nextStatus;
 
   const filteredUsers = useMemo(() => {
     const source = usersQuery.data ?? [];
@@ -758,9 +779,30 @@ function CompanyUsersSettings({
               Temporary password
               <Input
                 className="mt-2"
-                type="password"
+                type={showTemporaryPassword ? "text" : "password"}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                endAdornment={
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowTemporaryPassword((current) => !current)
+                    }
+                    className="rounded-md p-1 text-oc-muted transition hover:text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+                    aria-label={
+                      showTemporaryPassword
+                        ? "Hide temporary password"
+                        : "Show temporary password"
+                    }
+                    disabled={!canManage || upsertMutation.isPending}
+                  >
+                    {showTemporaryPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                }
                 disabled={!canManage || upsertMutation.isPending}
               />
             </label>
@@ -768,7 +810,7 @@ function CompanyUsersSettings({
           <label className="text-xs font-semibold uppercase text-oc-faint">
             Role
             <select
-              className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text"
+              className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text cursor-pointer disabled:cursor-not-allowed"
               value={role}
               onChange={(event) => setRole(event.target.value as UserRole)}
               disabled={!canManage || upsertMutation.isPending}
@@ -783,12 +825,12 @@ function CompanyUsersSettings({
           <label className="text-xs font-semibold uppercase text-oc-faint">
             Status
             <select
-              className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text"
+              className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text cursor-pointer disabled:cursor-not-allowed"
               value={status}
               onChange={(event) =>
                 setStatus(event.target.value as UserLifecycleStatus)
               }
-              disabled={!canManage || upsertMutation.isPending || Boolean(editingUserId)}
+              disabled={!canManage || upsertMutation.isPending}
             >
               {lifecycleStatuses.map((option) => (
                 <option key={option} value={option}>
@@ -801,14 +843,22 @@ function CompanyUsersSettings({
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             <Button
               type="submit"
+              className={actionButtonClass}
               disabled={!canManage || upsertMutation.isPending}
             >
-              {editingUserId ? "Save user" : "Create user"}
+              {upsertMutation.isPending
+                ? editingUserId
+                  ? "Saving..."
+                  : "Creating..."
+                : editingUserId
+                  ? "Save user"
+                  : "Create user"}
             </Button>
             {editingUserId && (
               <Button
                 type="button"
                 variant="secondary"
+                className={actionButtonClass}
                 disabled={upsertMutation.isPending}
                 onClick={resetForm}
               >
@@ -827,7 +877,7 @@ function CompanyUsersSettings({
             placeholder="Search name or email"
           />
           <select
-            className="h-10 rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text"
+            className="h-10 rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text cursor-pointer"
             value={roleFilter}
             onChange={(event) => setRoleFilter(event.target.value as UserRole | "ALL")}
           >
@@ -839,7 +889,7 @@ function CompanyUsersSettings({
             <option value="VIEWER">Viewer</option>
           </select>
           <select
-            className="h-10 rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text"
+            className="h-10 rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text cursor-pointer"
             value={statusFilter}
             onChange={(event) =>
               setStatusFilter(event.target.value as UserLifecycleStatus | "ALL")
@@ -889,6 +939,7 @@ function CompanyUsersSettings({
                       type="button"
                       size="sm"
                       variant="secondary"
+                      className={actionButtonClass}
                       disabled={!manageable || upsertMutation.isPending}
                       onClick={() => {
                         setEditingUserId(item.id);
@@ -907,7 +958,8 @@ function CompanyUsersSettings({
                       <Button
                         type="button"
                         size="sm"
-                        disabled={!manageable || statusMutation.isPending}
+                        className={actionButtonClass}
+                        disabled={!manageable || isStatusActionLoading(item.id, "ACTIVE")}
                         onClick={() =>
                           statusMutation.mutate({
                             userId: item.id,
@@ -915,7 +967,9 @@ function CompanyUsersSettings({
                           })
                         }
                       >
-                        Activate
+                        {isStatusActionLoading(item.id, "ACTIVE")
+                          ? "Activating..."
+                          : "Activate"}
                       </Button>
                     )}
 
@@ -924,7 +978,8 @@ function CompanyUsersSettings({
                         type="button"
                         size="sm"
                         variant="secondary"
-                        disabled={!manageable || statusMutation.isPending}
+                        className={actionButtonClass}
+                        disabled={!manageable || isStatusActionLoading(item.id, "SUSPENDED")}
                         onClick={() =>
                           statusMutation.mutate({
                             userId: item.id,
@@ -932,7 +987,9 @@ function CompanyUsersSettings({
                           })
                         }
                       >
-                        Suspend
+                        {isStatusActionLoading(item.id, "SUSPENDED")
+                          ? "Suspending..."
+                          : "Suspend"}
                       </Button>
                     )}
 
@@ -941,7 +998,8 @@ function CompanyUsersSettings({
                         type="button"
                         size="sm"
                         variant="danger"
-                        disabled={!manageable || statusMutation.isPending}
+                        className={actionButtonClass}
+                        disabled={!manageable || isStatusActionLoading(item.id, "DEACTIVATED")}
                         onClick={() =>
                           statusMutation.mutate({
                             userId: item.id,
@@ -949,7 +1007,9 @@ function CompanyUsersSettings({
                           })
                         }
                       >
-                        Deactivate
+                        {isStatusActionLoading(item.id, "DEACTIVATED")
+                          ? "Deactivating..."
+                          : "Deactivate"}
                       </Button>
                     )}
                   </div>

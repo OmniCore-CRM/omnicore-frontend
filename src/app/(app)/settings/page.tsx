@@ -246,14 +246,17 @@ export default function SettingsPage() {
 
   return (
     <div className="h-full overflow-y-auto p-3 md:p-4">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 lg:flex-row">
-        <nav className="flex shrink-0 self-start flex-row gap-1 overflow-x-auto lg:sticky lg:top-3 lg:w-44 lg:flex-col">
+      <div className="mx-auto max-w-7xl space-y-4 overflow-x-hidden">
+        <nav
+          aria-label="Settings sections"
+          className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-lg border border-oc-border bg-oc-bg/40 p-1 whitespace-nowrap"
+        >
           {tabs.map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`rounded-lg px-2.5 py-1.5 text-left text-[13px] whitespace-nowrap transition-colors lg:whitespace-normal ${
+              className={`shrink-0 rounded-lg px-2.5 py-1.5 text-left text-[13px] whitespace-nowrap transition-colors ${
                 tab === t
                   ? "bg-oc-panel text-oc-accent-2 ring-1 ring-violet-500/30"
                   : "text-oc-muted hover:bg-oc-panel/60 hover:text-oc-text"

@@ -59,6 +59,8 @@ const connectSources = Array.from(
     "ws://127.0.0.1:*",
   ].filter(Boolean) as string[]),
 );
+const isDevelopment = process.env.NODE_ENV !== "production";
+const scriptSources = ["'self'", "'unsafe-inline'", ...(isDevelopment ? ["'unsafe-eval'"] : [])].join(" ");
 
 // Do not set X-Frame-Options or frame-ancestors globally: /widget is
 // intentionally embeddable by customer websites and mobile WebViews.
@@ -73,7 +75,7 @@ const securityHeaders = [
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'unsafe-inline'",
+      `script-src ${scriptSources}`,
       `connect-src ${connectSources.join(" ")}`,
       "form-action 'self'",
     ].join("; "),

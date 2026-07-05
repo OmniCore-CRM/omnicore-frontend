@@ -15,7 +15,8 @@ export const queryKeys = {
     ["saved-replies", params ?? {}] as const,
   tags: (params?: Record<string, string | undefined>) =>
     ["tags", params ?? {}] as const,
-  analyticsOverview: (range: string) => ["analytics", "overview", range] as const,
+  analyticsOverview: (params: Record<string, string>) =>
+    ["analytics", "overview", params] as const,
   teams: ["teams"] as const,
   auditLogs: (params?: Record<string, string | undefined>) =>
     ["audit-logs", params ?? {}] as const,

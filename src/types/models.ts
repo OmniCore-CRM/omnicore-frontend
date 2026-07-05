@@ -456,7 +456,8 @@ export interface NotificationItem {
   createdAt: string;
 }
 
-export type AnalyticsRange = "7d" | "30d" | "90d" | "all";
+export type AnalyticsPresetRange = "7d" | "30d" | "90d";
+export type AnalyticsRange = AnalyticsPresetRange | "all" | "custom";
 
 export interface AnalyticsBreakdownItem {
   key: string;

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type ComponentType } from "react";
-import { formatDistanceToNow } from "date-fns";
+import { useMemo, useState, type ComponentType } from "react";
+import { format, formatDistanceToNow, isValid, parseISO } from "date-fns";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -17,7 +18,10 @@ import {
   Users,
   UsersRound,
 } from "lucide-react";
-import { getAnalyticsOverview } from "@/api/analytics";
+import {
+  type AnalyticsOverviewRequest,
+  getAnalyticsOverview,
+} from "@/api/analytics";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
@@ -27,17 +31,40 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type {
   AnalyticsBreakdownItem,
   AnalyticsOverview,
-  AnalyticsRange,
+  AnalyticsPresetRange,
   AnalyticsRecentActivity,
   AnalyticsTeamItem,
 } from "@/types/models";
 
-const ranges: { value: AnalyticsRange; label: string }[] = [
+const ranges: { value: AnalyticsPresetRange; label: string }[] = [
   { value: "7d", label: "7 days" },
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
-  { value: "all", label: "All time" },
 ];
+
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+const isIsoDate = (value: string | null) =>
+  Boolean(value && isoDatePattern.test(value) && isValid(parseISO(value)));
+
+const isPresetRange = (value: string | null): value is AnalyticsPresetRange =>
+  value === "7d" || value === "30d" || value === "90d";
+
+const isValidCustomRange = (startDate: string | null, endDate: string | null) => {
+  if (!isIsoDate(startDate) || !isIsoDate(endDate)) return false;
+  const start = parseISO(startDate!);
+  const end = parseISO(endDate!);
+  return end.getTime() >= start.getTime();
+};
+
+const formatRangeLabel = (startDate: string, endDate: string) => {
+  const start = parseISO(startDate);
+  const end = parseISO(endDate);
+
+  if (!isValid(start) || !isValid(end)) return "Custom range";
+
+  return `${format(start, "MMM d")} -> ${format(end, "MMM d")}`;
+};
 
 const barTones: Record<string, string> = {
   WEBSITE: "bg-sky-400",
@@ -406,10 +433,115 @@ function Dashboard({ data }: { data: AnalyticsOverview }) {
 
 export default function AnalyticsPage() {
   const token = useAuthStore((state) => state.accessToken);
-  const [range, setRange] = useState<AnalyticsRange>("30d");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [isCustomPickerOpen, setIsCustomPickerOpen] = useState(false);
+  const [draftStartDate, setDraftStartDate] = useState("");
+  const [draftEndDate, setDraftEndDate] = useState("");
+
+  const selection = useMemo(() => {
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const range = searchParams.get("range");
+
+    if (isValidCustomRange(startDate, endDate)) {
+      return {
+        presetRange: "30d" as AnalyticsPresetRange,
+        customRange: {
+          startDate: startDate!,
+          endDate: endDate!,
+        },
+      };
+    }
+
+    return {
+      presetRange: isPresetRange(range) ? range : ("30d" as AnalyticsPresetRange),
+      customRange: null,
+    };
+  }, [searchParams]);
+
+  const presetRange = selection.presetRange;
+  const customRange = selection.customRange;
+
+  const updateSearch = (updates: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchParams.toString());
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === "") {
+        next.delete(key);
+      } else {
+        next.set(key, value);
+      }
+    });
+
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const request = useMemo<AnalyticsOverviewRequest>(
+    () =>
+      customRange
+        ? { startDate: customRange.startDate, endDate: customRange.endDate }
+        : { range: presetRange },
+    [customRange, presetRange],
+  );
+
+  const analyticsKeyParams = useMemo<Record<string, string>>(
+    () => {
+      let params: Record<string, string>;
+
+      if ("range" in request) {
+        params = { range: request.range };
+      } else {
+        params = {
+          startDate: request.startDate,
+          endDate: request.endDate,
+        };
+      }
+
+      return params;
+    },
+    [request],
+  );
+
+  const customLabel =
+    customRange
+      ? formatRangeLabel(customRange.startDate, customRange.endDate)
+      : "Custom range";
+
+  const canApplyCustom = isValidCustomRange(draftStartDate, draftEndDate);
+
+  const selectPreset = (range: AnalyticsPresetRange) => {
+    setIsCustomPickerOpen(false);
+    updateSearch({ range, startDate: null, endDate: null });
+  };
+
+  const applyCustom = () => {
+    if (!canApplyCustom) return;
+    setIsCustomPickerOpen(false);
+    updateSearch({
+      startDate: draftStartDate,
+      endDate: draftEndDate,
+      range: null,
+    });
+  };
+
+  const cancelCustom = () => {
+    if (customRange) {
+      setDraftStartDate(customRange.startDate);
+      setDraftEndDate(customRange.endDate);
+    } else {
+      setDraftStartDate("");
+      setDraftEndDate("");
+    }
+    setIsCustomPickerOpen(false);
+  };
+
   const analyticsQuery = useQuery({
-    queryKey: queryKeys.analyticsOverview(range),
-    queryFn: () => getAnalyticsOverview(token!, range),
+    queryKey: queryKeys.analyticsOverview(analyticsKeyParams),
+    queryFn: () => getAnalyticsOverview(token!, request),
     enabled: Boolean(token),
     staleTime: 2 * 60_000,
     placeholderData: (previous) => previous,
@@ -436,16 +568,16 @@ export default function AnalyticsPage() {
           <div
             role="group"
             aria-label="Analytics time range"
-            className="grid grid-cols-2 gap-1 rounded-lg border border-oc-border bg-oc-panel p-1 sm:flex"
+            className="relative grid grid-cols-2 gap-1 rounded-lg border border-oc-border bg-oc-panel p-1 sm:flex"
           >
             {ranges.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                aria-pressed={range === option.value}
-                onClick={() => setRange(option.value)}
+                aria-pressed={!customRange && presetRange === option.value}
+                onClick={() => selectPreset(option.value)}
                 className={`h-9 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent ${
-                  range === option.value
+                  !customRange && presetRange === option.value
                     ? "bg-oc-accent text-white"
                     : "text-oc-muted hover:bg-oc-elevated hover:text-oc-text"
                 }`}
@@ -453,6 +585,77 @@ export default function AnalyticsPage() {
                 {option.label}
               </button>
             ))}
+
+            <button
+              type="button"
+              aria-pressed={Boolean(customRange)}
+              onClick={() => {
+                if (customRange) {
+                  setDraftStartDate(customRange.startDate);
+                  setDraftEndDate(customRange.endDate);
+                }
+                setIsCustomPickerOpen((open) => !open);
+              }}
+              className={`h-9 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent ${
+                customRange
+                  ? "bg-oc-accent text-white"
+                  : "text-oc-muted hover:bg-oc-elevated hover:text-oc-text"
+              }`}
+            >
+              {customLabel}
+            </button>
+
+            {isCustomPickerOpen && (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+                  aria-label="Close date range picker"
+                  onClick={cancelCustom}
+                />
+                <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-xl border border-oc-border bg-oc-bg-mid p-4 shadow-2xl md:absolute md:bottom-auto md:left-auto md:right-0 md:top-[calc(100%+0.5rem)] md:inset-x-auto md:z-50 md:w-[320px] md:rounded-xl">
+                  <p className="text-sm font-semibold text-oc-text">Custom range</p>
+                  <p className="mt-1 text-xs text-oc-muted">
+                    Choose start and end dates to filter analytics.
+                  </p>
+
+                  <div className="mt-3 grid gap-3">
+                    <label className="text-xs font-medium text-oc-faint">
+                      Start date
+                      <input
+                        type="date"
+                        value={draftStartDate}
+                        onChange={(event) => setDraftStartDate(event.target.value)}
+                        className="mt-1 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+                      />
+                    </label>
+                    <label className="text-xs font-medium text-oc-faint">
+                      End date
+                      <input
+                        type="date"
+                        value={draftEndDate}
+                        onChange={(event) => setDraftEndDate(event.target.value)}
+                        className="mt-1 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <Button type="button" variant="ghost" size="sm" onClick={cancelCustom}>
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!canApplyCustom}
+                      onClick={applyCustom}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </header>
 

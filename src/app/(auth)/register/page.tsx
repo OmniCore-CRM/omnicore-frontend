@@ -1,11 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { registerApi } from "@/api/auth";
@@ -27,6 +28,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
   const setSession = useAuthStore((s) => s.setSession);
 
   const {
@@ -114,16 +116,30 @@ export default function RegisterPage() {
 
         <Input
           label="Password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           autoComplete="new-password"
           placeholder="••••••••"
           error={errors.password?.message}
+          endAdornment={
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="rounded-md p-1 text-oc-muted transition hover:text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          }
           {...register("password")}
         />
 
         <Button
           type="submit"
-          className="w-full"
+          className="w-full cursor-pointer"
           disabled={registerMutation.isPending}
         >
           {registerMutation.isPending ? (

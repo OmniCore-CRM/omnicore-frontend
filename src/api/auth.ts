@@ -1,6 +1,11 @@
 import { apiFetch } from "./client";
 import { normalizeAuthResponse, normalizeMeResponse } from "./normalize";
-import type { LoginRequest, RegisterRequest } from "@/types/api";
+import type {
+  LoginRequest,
+  RegisterRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+} from "@/types/api";
 
 export async function loginApi(body: LoginRequest) {
   const raw = await apiFetch<unknown>("/auth/login", {
@@ -34,5 +39,19 @@ export async function logoutApi(token?: string | null): Promise<void> {
   await apiFetch<void>("/auth/logout", {
     method: "POST",
     token,
+  });
+}
+
+export async function forgotPasswordApi(body: ForgotPasswordRequest): Promise<void> {
+  await apiFetch<void>("/auth/forgot-password", {
+    method: "POST",
+    body,
+  });
+}
+
+export async function resetPasswordApi(body: ResetPasswordRequest): Promise<void> {
+  await apiFetch<void>("/auth/reset-password", {
+    method: "POST",
+    body,
   });
 }

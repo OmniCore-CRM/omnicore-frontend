@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { loginApi } from "@/api/auth";
@@ -24,6 +25,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
   const setSession = useAuthStore((s) => s.setSession);
   const accessToken = useAuthStore((s) => s.accessToken);
   const hasHydrated = useAuthStore((s) => s.hasHydrated);
@@ -97,10 +99,32 @@ export default function LoginPage() {
           </label>
           <Input
             id="password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             autoComplete="current-password"
+            endAdornment={
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="rounded-md p-1 text-oc-muted transition hover:text-oc-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-oc-accent"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            }
             {...form.register("password")}
           />
+          <div className="flex justify-end">
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-oc-accent-2 transition hover:text-violet-300 hover:underline focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400"
+            >
+              Forgot your password?
+            </Link>
+          </div>
           {form.formState.errors.password && (
             <p className="text-xs text-oc-danger">
               {form.formState.errors.password.message}
@@ -109,7 +133,7 @@ export default function LoginPage() {
         </div>
         <Button
           type="submit"
-          className="w-full"
+          className="w-full cursor-pointer"
           disabled={loginMut.isPending}
         >
           {loginMut.isPending ? "Signing in…" : "Continue"}
@@ -120,44 +144,14 @@ export default function LoginPage() {
         Don&apos;t have an account?{" "}
         <Link
           href="/register"
-          className="font-medium text-oc-accent-2 hover:underline"
+          className="inline-flex rounded-md px-2 py-1 font-semibold text-violet-300 transition hover:bg-violet-500/10 hover:text-violet-200 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-violet-400"
         >
           Create company account
         </Link>
       </p>
 
-      <div className="my-6 flex items-center gap-3">
-        <div className="h-px flex-1 bg-oc-border" />
-        <span className="text-[11px] uppercase tracking-wide text-oc-faint">
-          or continue with
-        </span>
-        <div className="h-px flex-1 bg-oc-border" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          disabled
-          title="TODO: connect Google OAuth with backend"
-        >
-          Google
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled
-          title="TODO: connect Microsoft OAuth with backend"
-        >
-          Microsoft
-        </Button>
-      </div>
-
       <p className="mt-8 text-center text-xs text-oc-faint">
-        <span className="text-oc-muted">
-          Forgot password flow coming soon
-        </span>{" "}
-        · Enterprise SSO available on request
+        Enterprise SSO available on request
       </p>
     </Card>
   );

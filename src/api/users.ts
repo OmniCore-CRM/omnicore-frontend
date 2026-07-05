@@ -54,3 +54,33 @@ export async function updateUserStatus(
     body: { status },
   });
 }
+
+export async function sendUserInvite(
+  token: string,
+  userId: string,
+): Promise<AuthUser> {
+  return apiFetch<AuthUser>(`/users/${userId}/invite`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function resendUserInvite(
+  token: string,
+  userId: string,
+): Promise<AuthUser> {
+  return apiFetch<AuthUser>(`/users/${userId}/invite/resend`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function revokeUserInvite(
+  token: string,
+  userId: string,
+): Promise<AuthUser> {
+  return apiFetch<AuthUser>(`/users/${userId}/invite/revoke`, {
+    method: "POST",
+    token,
+  });
+}

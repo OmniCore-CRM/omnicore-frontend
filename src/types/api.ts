@@ -52,6 +52,11 @@ export interface ResetPasswordRequest {
   password: string;
 }
 
+export interface AcceptInviteRequest {
+  token: string;
+  password: string;
+}
+
 /**
  * Shared authenticated session payload.
  *

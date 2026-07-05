@@ -5,6 +5,7 @@ import type {
   RegisterRequest,
   ForgotPasswordRequest,
   ResetPasswordRequest,
+  AcceptInviteRequest,
 } from "@/types/api";
 
 export async function loginApi(body: LoginRequest) {
@@ -51,6 +52,26 @@ export async function forgotPasswordApi(body: ForgotPasswordRequest): Promise<vo
 
 export async function resetPasswordApi(body: ResetPasswordRequest): Promise<void> {
   await apiFetch<void>("/auth/reset-password", {
+    method: "POST",
+    body,
+  });
+}
+
+export async function validateInviteTokenApi(token: string): Promise<{
+  firstName: string;
+  lastName: string;
+  email: string;
+  companyName: string;
+  expiresAt: string;
+}> {
+  return apiFetch(`/auth/invite/validate?token=${encodeURIComponent(token)}`);
+}
+
+export async function acceptInviteApi(body: AcceptInviteRequest): Promise<{
+  email: string;
+  firstName: string;
+}> {
+  return apiFetch("/auth/invite/accept", {
     method: "POST",
     body,
   });

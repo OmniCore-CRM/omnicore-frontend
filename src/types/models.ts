@@ -33,6 +33,13 @@ export type UserLifecycleStatus =
   | "SUSPENDED"
   | "DEACTIVATED";
 
+export type InvitationState =
+  | "NONE"
+  | "PENDING"
+  | "REVOKED"
+  | "EXPIRED"
+  | "ACCEPTED";
+
 // Authenticated platform user.
 export interface AuthUser {
   id: string;
@@ -41,6 +48,9 @@ export interface AuthUser {
   lastName: string;
   role: UserRole;
   status?: UserLifecycleStatus;
+  invitationState?: InvitationState;
+  invitationSentAt?: string | null;
+  invitationExpiresAt?: string | null;
   companyId: string;
 
   // Optional UI-only fields.

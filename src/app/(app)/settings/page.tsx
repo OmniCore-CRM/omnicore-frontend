@@ -30,6 +30,9 @@ import { listAuditLogs } from "@/api/audit-logs";
 import {
   createUser,
   listUsers,
+  resendUserInvite,
+  revokeUserInvite,
+  sendUserInvite,
   updateUser,
   updateUserStatus,
 } from "@/api/users";
@@ -133,6 +136,12 @@ const auditActions = [
   "USER_ACTIVATED",
   "USER_SUSPENDED",
   "USER_DEACTIVATED",
+  "USER_INVITE_SENT",
+  "USER_INVITE_RESENT",
+  "USER_INVITE_REVOKED",
+  "USER_INVITE_ACCEPTED",
+  "USER_INVITE_EXPIRED",
+  "USER_INVITE_INVALID_ATTEMPT",
 ];
 
 const auditEntityTypes = [
@@ -219,6 +228,11 @@ const lifecycleStatuses: UserLifecycleStatus[] = [
 
 const formatLifecycleStatus = (status?: UserLifecycleStatus) =>
   status ? status.toLowerCase().replace(/(^|_)(\w)/g, (_, p1, p2) => `${p1 ? " " : ""}${p2.toUpperCase()}`) : "Active";
+
+const formatInvitationState = (value?: string) =>
+  value
+    ? value.toLowerCase().replace(/(^|_)(\w)/g, (_, p1, p2) => `${p1 ? " " : ""}${p2.toUpperCase()}`)
+    : "None";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Profile");
@@ -677,6 +691,45 @@ function CompanyUsersSettings({
     },
   });
 
+  const inviteMutation = useMutation({
+    mutationFn: ({
+      userId,
+      action,
+    }: {
+      userId: string;
+      action: "send" | "resend" | "revoke";
+    }) => {
+      if (action === "resend") {
+        return resendUserInvite(token, userId);
+      }
+
+      if (action === "revoke") {
+        return revokeUserInvite(token, userId);
+      }
+
+      return sendUserInvite(token, userId);
+    },
+    onSuccess: async (_result, variables) => {
+      await refreshUsers();
+      const actionMessage =
+        variables.action === "resend"
+          ? "Invite resent"
+          : variables.action === "revoke"
+            ? "Invite revoked"
+            : "Invite sent";
+      toast.success(actionMessage);
+    },
+    onError: (error, variables) => {
+      const actionMessage =
+        variables.action === "resend"
+          ? "Could not resend invite"
+          : variables.action === "revoke"
+            ? "Could not revoke invite"
+            : "Could not send invite";
+      toast.error(getErrorMessage(error, actionMessage));
+    },
+  });
+
   const isStatusActionLoading = (
     userId: string,
     nextStatus: UserLifecycleStatus,
@@ -684,6 +737,14 @@ function CompanyUsersSettings({
     statusMutation.isPending &&
     statusMutation.variables?.userId === userId &&
     statusMutation.variables?.nextStatus === nextStatus;
+
+  const isInviteActionLoading = (
+    userId: string,
+    action: "send" | "resend" | "revoke",
+  ) =>
+    inviteMutation.isPending &&
+    inviteMutation.variables?.userId === userId &&
+    inviteMutation.variables?.action === action;
 
   const filteredUsers = useMemo(() => {
     const source = usersQuery.data ?? [];
@@ -917,6 +978,7 @@ function CompanyUsersSettings({
           <div className="space-y-2">
             {filteredUsers.map((item) => {
               const itemStatus = item.status ?? "ACTIVE";
+              const invitationState = item.invitationState ?? "NONE";
               const manageable = canManageTarget(item);
 
               return (
@@ -932,6 +994,11 @@ function CompanyUsersSettings({
                     <p className="mt-1 text-xs uppercase text-oc-faint">
                       {item.role.replace("_", " ")} · {formatLifecycleStatus(itemStatus)}
                     </p>
+                    {itemStatus === "INVITED" && (
+                      <p className="mt-1 text-xs uppercase text-oc-faint">
+                        Invite: {formatInvitationState(invitationState)}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -954,7 +1021,65 @@ function CompanyUsersSettings({
                       Edit
                     </Button>
 
-                    {itemStatus !== "ACTIVE" && (
+                    {itemStatus === "INVITED" && invitationState === "PENDING" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className={actionButtonClass}
+                        disabled={!manageable || isInviteActionLoading(item.id, "resend")}
+                        onClick={() =>
+                          inviteMutation.mutate({
+                            userId: item.id,
+                            action: "resend",
+                          })
+                        }
+                      >
+                        {isInviteActionLoading(item.id, "resend")
+                          ? "Resending..."
+                          : "Resend invite"}
+                      </Button>
+                    )}
+
+                    {itemStatus === "INVITED" && invitationState === "PENDING" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="danger"
+                        className={actionButtonClass}
+                        disabled={!manageable || isInviteActionLoading(item.id, "revoke")}
+                        onClick={() =>
+                          inviteMutation.mutate({
+                            userId: item.id,
+                            action: "revoke",
+                          })
+                        }
+                      >
+                        {isInviteActionLoading(item.id, "revoke")
+                          ? "Revoking..."
+                          : "Revoke invite"}
+                      </Button>
+                    )}
+
+                    {itemStatus === "INVITED" && invitationState !== "PENDING" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className={actionButtonClass}
+                        disabled={!manageable || isInviteActionLoading(item.id, "send")}
+                        onClick={() =>
+                          inviteMutation.mutate({
+                            userId: item.id,
+                            action: "send",
+                          })
+                        }
+                      >
+                        {isInviteActionLoading(item.id, "send")
+                          ? "Sending..."
+                          : "Send invite"}
+                      </Button>
+                    )}
+
+                    {itemStatus !== "ACTIVE" && itemStatus !== "INVITED" && (
                       <Button
                         type="button"
                         size="sm"

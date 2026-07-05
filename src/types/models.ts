@@ -27,6 +27,12 @@ export type UserRole =
   | "AGENT"
   | "VIEWER";
 
+export type UserLifecycleStatus =
+  | "INVITED"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "DEACTIVATED";
+
 // Authenticated platform user.
 export interface AuthUser {
   id: string;
@@ -34,6 +40,7 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   role: UserRole;
+  status?: UserLifecycleStatus;
   companyId: string;
 
   // Optional UI-only fields.

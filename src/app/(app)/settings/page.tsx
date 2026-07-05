@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
@@ -27,7 +26,12 @@ import {
   updateTag,
 } from "@/api/tags";
 import { listAuditLogs } from "@/api/audit-logs";
-import { listUsers } from "@/api/users";
+import {
+  createUser,
+  listUsers,
+  updateUser,
+  updateUserStatus,
+} from "@/api/users";
 import {
   createSlaPolicy,
   deleteSlaPolicy,
@@ -60,6 +64,8 @@ import type {
   SlaPolicy,
   Tag,
   TicketPriority,
+  UserLifecycleStatus,
+  UserRole,
 } from "@/types/models";
 
 const tabs = [
@@ -120,6 +126,12 @@ const auditActions = [
   "EMAIL_ACCOUNT_DELETED",
   "EMAIL_RECEIVED",
   "EMAIL_SENT",
+  "USER_CREATED",
+  "USER_UPDATED",
+  "USER_ROLE_CHANGED",
+  "USER_ACTIVATED",
+  "USER_SUSPENDED",
+  "USER_DEACTIVATED",
 ];
 
 const auditEntityTypes = [
@@ -191,6 +203,21 @@ function buildWidgetFrameSnippet(publicKey: string) {
 
   return `<iframe src="${origin}/widget?key=${publicKey}" style="position:fixed;right:16px;bottom:16px;width:380px;height:620px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);border:0;z-index:2147483647;" title="OmniCore Chat"></iframe>`;
 }
+
+const manageableRolesByActor: Record<string, UserRole[]> = {
+  OWNER: ["OWNER", "ADMIN", "TEAM_LEAD", "AGENT", "VIEWER"],
+  ADMIN: ["ADMIN", "TEAM_LEAD", "AGENT", "VIEWER"],
+};
+
+const lifecycleStatuses: UserLifecycleStatus[] = [
+  "INVITED",
+  "ACTIVE",
+  "SUSPENDED",
+  "DEACTIVATED",
+];
+
+const formatLifecycleStatus = (status?: UserLifecycleStatus) =>
+  status ? status.toLowerCase().replace(/(^|_)(\w)/g, (_, p1, p2) => `${p1 ? " " : ""}${p2.toUpperCase()}`) : "Active";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Profile");
@@ -344,20 +371,7 @@ export default function SettingsPage() {
           )}
 
           {tab === "Team & roles" && (
-            <Card className="space-y-3 p-5">
-              <h2 className="text-sm font-semibold text-oc-text">
-                Team & roles
-              </h2>
-              <p className="text-sm text-oc-muted">
-                Teams are now managed from the dedicated Teams module.
-              </p>
-              <Link
-                href="/teams"
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-oc-accent px-4 text-sm font-medium text-white transition-colors hover:bg-violet-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oc-accent"
-              >
-                Open Teams
-              </Link>
-            </Card>
+            <CompanyUsersSettings token={token ?? ""} user={user} />
           )}
 
           {tab === "Channels" && (
@@ -556,6 +570,401 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function CompanyUsersSettings({
+  token,
+  user,
+}: {
+  token: string;
+  user: AuthUser | null;
+}) {
+  const qc = useQueryClient();
+  const canManage = ["OWNER", "ADMIN"].includes(user?.role ?? "");
+  const allowedRoles = manageableRolesByActor[user?.role ?? ""] ?? [];
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<UserRole | "ALL">("ALL");
+  const [statusFilter, setStatusFilter] = useState<UserLifecycleStatus | "ALL">("ALL");
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>(allowedRoles[0] ?? "AGENT");
+  const [status, setStatus] = useState<UserLifecycleStatus>("INVITED");
+
+  const usersQuery = useQuery({
+    queryKey: queryKeys.users,
+    queryFn: () => listUsers(token),
+    enabled: Boolean(token),
+    staleTime: 60_000,
+  });
+
+  const refreshUsers = () =>
+    qc.invalidateQueries({
+      queryKey: queryKeys.users,
+    });
+
+  const resetForm = () => {
+    setEditingUserId(null);
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setPassword("");
+    setRole(allowedRoles[0] ?? "AGENT");
+    setStatus("INVITED");
+  };
+
+  const upsertMutation = useMutation({
+    mutationFn: async () => {
+      if (editingUserId) {
+        return updateUser(token, editingUserId, {
+          firstName,
+          lastName,
+          email,
+          role,
+        });
+      }
+
+      return createUser(token, {
+        firstName,
+        lastName,
+        email,
+        password,
+        role,
+        status,
+      });
+    },
+    onSuccess: async () => {
+      await refreshUsers();
+      resetForm();
+      toast.success(editingUserId ? "User updated" : "User created");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not save user"));
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({
+      userId,
+      nextStatus,
+    }: {
+      userId: string;
+      nextStatus: UserLifecycleStatus;
+    }) => updateUserStatus(token, userId, nextStatus),
+    onSuccess: async () => {
+      await refreshUsers();
+      toast.success("User status updated");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not update user status"));
+    },
+  });
+
+  const filteredUsers = useMemo(() => {
+    const source = usersQuery.data ?? [];
+    const query = search.trim().toLowerCase();
+
+    return source.filter((item) => {
+      const itemStatus = item.status ?? "ACTIVE";
+      const fullName = `${item.firstName} ${item.lastName}`.toLowerCase();
+      const matchesSearch =
+        !query ||
+        item.email.toLowerCase().includes(query) ||
+        fullName.includes(query);
+      const matchesRole = roleFilter === "ALL" || item.role === roleFilter;
+      const matchesStatus =
+        statusFilter === "ALL" || itemStatus === statusFilter;
+
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [usersQuery.data, search, roleFilter, statusFilter]);
+
+  const canManageTarget = (target: AuthUser) => {
+    if (!canManage || !user) return false;
+    if (target.id === user.id) return false;
+    if (user.role === "ADMIN" && target.role === "OWNER") return false;
+    return true;
+  };
+
+  const roleOptions =
+    allowedRoles.length > 0
+      ? allowedRoles
+      : (["AGENT", "VIEWER"] as UserRole[]);
+
+  return (
+    <div className="space-y-4">
+      <Card className="space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-oc-text">Company users</h2>
+          <p className="mt-1 text-sm text-oc-muted">
+            Create, update roles, and manage lifecycle status for users in your
+            company workspace.
+          </p>
+        </div>
+
+        {!canManage && (
+          <p className="rounded-lg border border-oc-border bg-oc-bg/40 p-3 text-sm text-oc-muted">
+            You have read-only access to users.
+          </p>
+        )}
+
+        <form
+          className="grid gap-3 sm:grid-cols-2"
+          onSubmit={(event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            if (!canManage || upsertMutation.isPending) return;
+            if (!firstName.trim() || !lastName.trim() || !email.trim()) return;
+            if (!editingUserId && password.trim().length < 8) {
+              toast.error("Password must be at least 8 characters");
+              return;
+            }
+            upsertMutation.mutate();
+          }}
+        >
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            First name
+            <Input
+              className="mt-2"
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+              disabled={!canManage || upsertMutation.isPending}
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Last name
+            <Input
+              className="mt-2"
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
+              disabled={!canManage || upsertMutation.isPending}
+            />
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Email
+            <Input
+              className="mt-2"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={!canManage || upsertMutation.isPending}
+            />
+          </label>
+          {!editingUserId && (
+            <label className="text-xs font-semibold uppercase text-oc-faint">
+              Temporary password
+              <Input
+                className="mt-2"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={!canManage || upsertMutation.isPending}
+              />
+            </label>
+          )}
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Role
+            <select
+              className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text"
+              value={role}
+              onChange={(event) => setRole(event.target.value as UserRole)}
+              disabled={!canManage || upsertMutation.isPending}
+            >
+              {roleOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option.replace("_", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-semibold uppercase text-oc-faint">
+            Status
+            <select
+              className="mt-2 h-10 w-full rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text"
+              value={status}
+              onChange={(event) =>
+                setStatus(event.target.value as UserLifecycleStatus)
+              }
+              disabled={!canManage || upsertMutation.isPending || Boolean(editingUserId)}
+            >
+              {lifecycleStatuses.map((option) => (
+                <option key={option} value={option}>
+                  {formatLifecycleStatus(option)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="flex flex-wrap gap-2 sm:col-span-2">
+            <Button
+              type="submit"
+              disabled={!canManage || upsertMutation.isPending}
+            >
+              {editingUserId ? "Save user" : "Create user"}
+            </Button>
+            {editingUserId && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={upsertMutation.isPending}
+                onClick={resetForm}
+              >
+                Cancel edit
+              </Button>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search name or email"
+          />
+          <select
+            className="h-10 rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text"
+            value={roleFilter}
+            onChange={(event) => setRoleFilter(event.target.value as UserRole | "ALL")}
+          >
+            <option value="ALL">All roles</option>
+            <option value="OWNER">Owner</option>
+            <option value="ADMIN">Admin</option>
+            <option value="TEAM_LEAD">Team lead</option>
+            <option value="AGENT">Agent</option>
+            <option value="VIEWER">Viewer</option>
+          </select>
+          <select
+            className="h-10 rounded-lg border border-oc-border bg-oc-bg px-3 text-sm text-oc-text"
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as UserLifecycleStatus | "ALL")
+            }
+          >
+            <option value="ALL">All statuses</option>
+            {lifecycleStatuses.map((option) => (
+              <option key={option} value={option}>
+                {formatLifecycleStatus(option)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {usersQuery.isLoading && (
+          <p className="text-sm text-oc-muted">Loading users...</p>
+        )}
+        {usersQuery.error && (
+          <p className="rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-200">
+            {getErrorMessage(usersQuery.error, "Could not load users")}
+          </p>
+        )}
+
+        {!usersQuery.isLoading && !usersQuery.error && (
+          <div className="space-y-2">
+            {filteredUsers.map((item) => {
+              const itemStatus = item.status ?? "ACTIVE";
+              const manageable = canManageTarget(item);
+
+              return (
+                <div
+                  key={item.id}
+                  className="flex flex-col gap-3 rounded-lg border border-oc-border bg-oc-bg/45 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-oc-text">
+                      {item.firstName} {item.lastName}
+                    </p>
+                    <p className="truncate text-sm text-oc-muted">{item.email}</p>
+                    <p className="mt-1 text-xs uppercase text-oc-faint">
+                      {item.role.replace("_", " ")} · {formatLifecycleStatus(itemStatus)}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={!manageable || upsertMutation.isPending}
+                      onClick={() => {
+                        setEditingUserId(item.id);
+                        setFirstName(item.firstName);
+                        setLastName(item.lastName);
+                        setEmail(item.email);
+                        setRole(item.role);
+                        setStatus(itemStatus);
+                        setPassword("");
+                      }}
+                    >
+                      Edit
+                    </Button>
+
+                    {itemStatus !== "ACTIVE" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!manageable || statusMutation.isPending}
+                        onClick={() =>
+                          statusMutation.mutate({
+                            userId: item.id,
+                            nextStatus: "ACTIVE",
+                          })
+                        }
+                      >
+                        Activate
+                      </Button>
+                    )}
+
+                    {itemStatus === "ACTIVE" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={!manageable || statusMutation.isPending}
+                        onClick={() =>
+                          statusMutation.mutate({
+                            userId: item.id,
+                            nextStatus: "SUSPENDED",
+                          })
+                        }
+                      >
+                        Suspend
+                      </Button>
+                    )}
+
+                    {itemStatus !== "DEACTIVATED" && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="danger"
+                        disabled={!manageable || statusMutation.isPending}
+                        onClick={() =>
+                          statusMutation.mutate({
+                            userId: item.id,
+                            nextStatus: "DEACTIVATED",
+                          })
+                        }
+                      >
+                        Deactivate
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredUsers.length === 0 && (
+              <p className="rounded-lg border border-dashed border-oc-border bg-oc-bg/40 p-5 text-sm text-oc-muted">
+                No users match the current filters.
+              </p>
+            )}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

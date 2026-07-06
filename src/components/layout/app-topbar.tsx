@@ -14,6 +14,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { NotificationCenter } from "@/components/layout/notification-center";
 
 const pageTitles: Record<string, { title: string; eyebrow: string }> = {
   "/inbox": {
@@ -134,6 +135,8 @@ export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
 
       <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
         <ConnectionPill state={socketState} />
+
+        <NotificationCenter />
 
         <div className="hidden items-center gap-2 rounded-xl border border-oc-border bg-oc-panel px-2.5 py-2 xl:flex">
           <span className="text-xs font-medium text-oc-faint">

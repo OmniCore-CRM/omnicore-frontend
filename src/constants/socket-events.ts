@@ -14,6 +14,9 @@ export const SOCKET_EVENTS = {
   TYPING_START: "typing:start",
   TYPING_STOP: "typing:stop",
   INBOX_REFRESH: "inbox:refresh",
+  NOTIFICATION_NEW: "notification:new",
+  NOTIFICATION_UPDATED: "notification:updated",
+  NOTIFICATION_READ_ALL: "notification:read-all",
 
   // Conversation room architecture
   JOIN_CONVERSATION: "join_conversation",

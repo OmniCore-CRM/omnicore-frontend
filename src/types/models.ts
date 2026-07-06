@@ -467,8 +467,24 @@ export interface TicketActivity {
 // Notification center item.
 export interface NotificationItem {
   id: string;
+  type:
+    | "TICKET_ASSIGNED"
+    | "CONVERSATION_ASSIGNED"
+    | "TICKET_TEAM_ASSIGNED"
+    | "CONVERSATION_TEAM_ASSIGNED"
+    | "TICKET_MENTION"
+    | "CONVERSATION_MENTION"
+    | "INVITE_ACCEPTED"
+    | "USER_ACTIVATED"
+    | "TEAM_MEMBER_ADDED"
+    | "ROLE_CHANGED";
   title: string;
+  message: string;
   body?: string;
+  entityType: string;
+  entityId: string;
+  metadata?: Record<string, unknown> | null;
+  isRead: boolean;
   read: boolean;
   createdAt: string;
 }

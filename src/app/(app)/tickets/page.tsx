@@ -39,6 +39,7 @@ import {
   formatFileSize,
 } from "@/features/attachments/attachment-list";
 import { formatRelative } from "@/lib/format-time";
+import { Permissions, hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type {
@@ -343,7 +344,7 @@ function TicketsWorkspace() {
     pendingTicketAttachment && pendingTicketAttachment.ticketId === selectedId
       ? pendingTicketAttachment.file
       : null;
-  const canMutate = user?.role !== "VIEWER";
+  const canMutate = hasPermission(user?.role, Permissions.operationalTicketActions);
 
   const resetPagination = () => {
     setCursor(undefined);

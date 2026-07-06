@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Permissions, hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, MessageSquare, Plus, TicketIcon, Trash2, UsersRound } from "lucide-react";
 
@@ -33,7 +34,7 @@ export default function TeamsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [memberId, setMemberId] = useState("");
-  const canManage = ["OWNER", "ADMIN", "TEAM_LEAD"].includes(user?.role ?? "");
+  const canManage = hasPermission(user?.role, Permissions.manageTeams);
 
   const teamsQuery = useQuery({
     queryKey: queryKeys.teams,

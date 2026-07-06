@@ -34,6 +34,7 @@ import {
   InlineAttachmentItem,
 } from "@/features/attachments/attachment-list";
 import { buildConversationTimeline } from "@/features/attachments/conversation-timeline";
+import { Permissions, hasPermission } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
 import type {
@@ -130,6 +131,15 @@ export function MessageThreadPanel({
 }) {
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
+  const canPerformConversationActions = hasPermission(
+    user?.role,
+    Permissions.operationalConversationActions,
+  );
+  const canAssignWork = hasPermission(user?.role, Permissions.assignWork);
+  const canPerformTicketActions = hasPermission(
+    user?.role,
+    Permissions.operationalTicketActions,
+  );
   const selectedId = useInboxStore((s) => s.selectedConversationId);
   const [savedRepliesOpen, setSavedRepliesOpen] = useState(false);
   const [savedReplySearch, setSavedReplySearch] = useState("");
@@ -576,7 +586,7 @@ export function MessageThreadPanel({
                 aria-label="Conversation team mobile"
                 value={conversation?.teamId ?? ""}
                 onChange={(event) => teamMut.mutate(event.target.value || null)}
-                disabled={teamMut.isPending || user?.role === "VIEWER"}
+                disabled={teamMut.isPending || !canAssignWork}
                 className="h-8 max-w-[120px] rounded-lg border border-oc-border bg-oc-panel px-2 text-xs font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
               >
                 <option value="">No team</option>
@@ -647,7 +657,7 @@ export function MessageThreadPanel({
               size="sm"
               type="button"
               className="h-9 gap-1.5 px-2.5 text-xs"
-              disabled={resolveTicketMut.isPending || user?.role === "VIEWER"}
+              disabled={resolveTicketMut.isPending || !canPerformTicketActions}
               onClick={() => resolveTicketMut.mutate(linkedTicket!)}
             >
               {resolveTicketMut.isPending ? (
@@ -669,7 +679,7 @@ export function MessageThreadPanel({
               disabled={
                 convLoading ||
                 statusMut.isPending ||
-                user?.role === "VIEWER"
+                !canPerformConversationActions
               }
               className="h-9 max-w-[118px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-xs font-semibold text-oc-text outline-none transition-colors hover:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-oc-accent disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-none"
             >
@@ -686,7 +696,7 @@ export function MessageThreadPanel({
               aria-label="Conversation team"
               value={conversation?.teamId ?? ""}
               onChange={(event) => teamMut.mutate(event.target.value || null)}
-              disabled={teamMut.isPending || user?.role === "VIEWER"}
+              disabled={teamMut.isPending || !canAssignWork}
               className="h-9 max-w-[132px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-xs font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
             >
               <option value="">No team</option>
@@ -882,7 +892,7 @@ export function MessageThreadPanel({
                 type="file"
                 className="sr-only"
                 accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,.doc,.docx,.xls,.xlsx"
-                disabled={uploadAttachmentMut.isPending || user?.role === "VIEWER"}
+                disabled={uploadAttachmentMut.isPending || !canPerformConversationActions}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file && selectedId) {

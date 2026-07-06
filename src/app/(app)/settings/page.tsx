@@ -71,6 +71,7 @@ import type {
   UserLifecycleStatus,
   UserRole,
 } from "@/types/models";
+import { Permissions, hasPermission, roleLabel } from "@/lib/permissions";
 
 const tabs = [
   "Profile",
@@ -215,6 +216,7 @@ function buildWidgetFrameSnippet(publicKey: string) {
 }
 
 const manageableRolesByActor: Record<string, UserRole[]> = {
+  SUPER_ADMIN: ["OWNER", "ADMIN", "TEAM_LEAD", "AGENT", "VIEWER"],
   OWNER: ["OWNER", "ADMIN", "TEAM_LEAD", "AGENT", "VIEWER"],
   ADMIN: ["ADMIN", "TEAM_LEAD", "AGENT", "VIEWER"],
 };
@@ -286,6 +288,42 @@ export default function SettingsPage() {
     toast.success(`${label} copied`);
   };
 
+  const visibleTabs = useMemo(() => {
+    const role = user?.role;
+
+    return tabs.filter((entry) => {
+      if (entry === "Team & roles") {
+        return hasPermission(role, Permissions.viewUsers);
+      }
+
+      if (entry === "Channels") {
+        return hasPermission(role, Permissions.manageEmailChannels);
+      }
+
+      if (entry === "Widget") {
+        return hasPermission(role, Permissions.manageWidget);
+      }
+
+      if (entry === "Assignment rules") {
+        return hasPermission(role, Permissions.manageAssignmentRules);
+      }
+
+      if (entry === "SLA policies") {
+        return hasPermission(role, Permissions.manageSlaPolicies);
+      }
+
+      if (entry === "Audit logs") {
+        return hasPermission(role, Permissions.viewAuditLogs);
+      }
+
+      if (entry === "Notifications") {
+        return hasPermission(role, Permissions.manageSettings);
+      }
+
+      return true;
+    });
+  }, [user?.role]);
+
   return (
     <div className="h-full overflow-y-auto p-3 md:p-4">
       <div className="mx-auto max-w-7xl space-y-4 overflow-x-hidden">
@@ -293,7 +331,7 @@ export default function SettingsPage() {
           aria-label="Settings sections"
           className="flex w-full min-w-0 gap-1 overflow-x-auto rounded-lg border border-oc-border bg-oc-bg/40 p-1 whitespace-nowrap"
         >
-          {tabs.map((t) => (
+          {visibleTabs.map((t) => (
             <button
               key={t}
               type="button"
@@ -539,14 +577,14 @@ export default function SettingsPage() {
           {tab === "Saved replies" && (
             <SavedRepliesSettings
               token={token ?? ""}
-              canMutate={user?.role !== "VIEWER"}
+              canMutate={hasPermission(user?.role, Permissions.manageSavedReplies)}
             />
           )}
 
           {tab === "Tags" && (
             <TagsSettings
               token={token ?? ""}
-              canMutate={user?.role !== "VIEWER"}
+              canMutate={hasPermission(user?.role, Permissions.manageTags)}
             />
           )}
 
@@ -557,17 +595,16 @@ export default function SettingsPage() {
           {tab === "SLA policies" && (
             <SlaPoliciesSettings
               token={token ?? ""}
-              canMutate={["OWNER", "ADMIN", "TEAM_LEAD"].includes(
-                user?.role ?? "",
-              )}
+              canMutate={hasPermission(user?.role, Permissions.manageSlaPolicies)}
             />
           )}
 
           {tab === "Assignment rules" && (
             <AssignmentRulesSettings
               token={token ?? ""}
-              canMutate={["OWNER", "ADMIN", "TEAM_LEAD"].includes(
-                user?.role ?? "",
+              canMutate={hasPermission(
+                user?.role,
+                Permissions.manageAssignmentRules,
               )}
             />
           )}
@@ -597,7 +634,7 @@ function CompanyUsersSettings({
   user: AuthUser | null;
 }) {
   const qc = useQueryClient();
-  const canManage = ["OWNER", "ADMIN"].includes(user?.role ?? "");
+  const canManage = hasPermission(user?.role, Permissions.manageUsers);
   const allowedRoles = manageableRolesByActor[user?.role ?? ""] ?? [];
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "ALL">("ALL");
@@ -878,7 +915,7 @@ function CompanyUsersSettings({
             >
               {roleOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option.replace("_", " ")}
+                  {roleLabel(option)}
                 </option>
               ))}
             </select>
@@ -945,7 +982,7 @@ function CompanyUsersSettings({
             <option value="ALL">All roles</option>
             <option value="OWNER">Owner</option>
             <option value="ADMIN">Admin</option>
-            <option value="TEAM_LEAD">Team lead</option>
+            <option value="TEAM_LEAD">Supervisor</option>
             <option value="AGENT">Agent</option>
             <option value="VIEWER">Viewer</option>
           </select>
@@ -992,7 +1029,7 @@ function CompanyUsersSettings({
                     </p>
                     <p className="truncate text-sm text-oc-muted">{item.email}</p>
                     <p className="mt-1 text-xs uppercase text-oc-faint">
-                      {item.role.replace("_", " ")} · {formatLifecycleStatus(itemStatus)}
+                      {roleLabel(item.role)} · {formatLifecycleStatus(itemStatus)}
                     </p>
                     {itemStatus === "INVITED" && (
                       <p className="mt-1 text-xs uppercase text-oc-faint">
@@ -1173,7 +1210,7 @@ function EmailChannelsSettings({
   const [editing, setEditing] = useState<EmailAccount | null>(null);
   const [fromEmail, setFromEmail] = useState("");
   const [fromName, setFromName] = useState("");
-  const canManage = ["OWNER", "ADMIN", "TEAM_LEAD"].includes(user?.role ?? "");
+  const canManage = hasPermission(user?.role, Permissions.manageEmailChannels);
   const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.emailAccounts });
   const reset = () => {
     setEditing(null);

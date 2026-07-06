@@ -49,6 +49,10 @@ const pageTitles: Record<string, { title: string; eyebrow: string }> = {
     title: "Settings",
     eyebrow: "Workspace configuration",
   },
+  "/notifications": {
+    title: "Notifications",
+    eyebrow: "Realtime alerts and activity updates",
+  },
 };
 
 function ConnectionPill({ state }: { state: ReturnType<typeof useSocketConnection> }) {

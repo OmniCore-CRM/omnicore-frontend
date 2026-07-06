@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getUnreadNotificationCount,
@@ -16,11 +17,13 @@ import { useSocket } from "@/components/providers/socket-provider";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getErrorMessage } from "@/api/errors";
 import { formatRelative } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 import type { Paginated } from "@/types/api";
 import type { NotificationItem } from "@/types/models";
 import { Bell, BellDot, Check, CheckCheck } from "lucide-react";
+import { toast } from "sonner";
 
 type NotificationNewPayload = {
   notification: NotificationItem;
@@ -66,12 +69,32 @@ function routeForNotification(notification: NotificationItem) {
     return "/settings";
   }
 
-  return "/my-work";
+  return "/notifications";
+}
+
+function upsertInPaginatedCache(
+  incoming: NotificationItem,
+  old: Paginated<NotificationItem> | undefined,
+) {
+  const nextNotification = normalizeRead(incoming);
+  const base = old ?? { items: [] as NotificationItem[] };
+  const exists = base.items.some((item) => item.id === nextNotification.id);
+  const items = exists
+    ? base.items.map((item) =>
+        item.id === nextNotification.id ? nextNotification : item,
+      )
+    : [nextNotification, ...base.items];
+
+  return {
+    ...base,
+    items: items.slice(0, 100),
+  };
 }
 
 export function NotificationCenter() {
   const token = useAuthStore((state) => state.accessToken);
   const socket = useSocket();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -106,23 +129,10 @@ export function NotificationCenter() {
     if (!socket) return;
 
     const upsertNotification = (incoming: NotificationItem) => {
-      const nextNotification = normalizeRead(incoming);
-      queryClient.setQueryData(
-        queryKeys.notifications({ scope: "header" }),
-        (old: Paginated<NotificationItem> | undefined) => {
-          const base = old ?? { items: [] as NotificationItem[] };
-          const exists = base.items.some((item) => item.id === nextNotification.id);
-          const items = exists
-            ? base.items.map((item) =>
-                item.id === nextNotification.id ? nextNotification : item,
-              )
-            : [nextNotification, ...base.items];
-
-          return {
-            ...base,
-            items: items.slice(0, 50),
-          };
-        },
+      queryClient.setQueriesData(
+        { queryKey: ["notifications"] },
+        (old: Paginated<NotificationItem> | undefined) =>
+          upsertInPaginatedCache(incoming, old),
       );
     };
 
@@ -134,8 +144,8 @@ export function NotificationCenter() {
     };
 
     const onUpdated = (payload: NotificationUpdatedPayload) => {
-      queryClient.setQueryData(
-        queryKeys.notifications({ scope: "header" }),
+      queryClient.setQueriesData(
+        { queryKey: ["notifications"] },
         (old: Paginated<NotificationItem> | undefined) => {
           if (!old) return old;
           return {
@@ -159,8 +169,8 @@ export function NotificationCenter() {
     };
 
     const onReadAll = (payload: NotificationReadAllPayload) => {
-      queryClient.setQueryData(
-        queryKeys.notifications({ scope: "header" }),
+      queryClient.setQueriesData(
+        { queryKey: ["notifications"] },
         (old: Paginated<NotificationItem> | undefined) => {
           if (!old) return old;
           return {
@@ -192,10 +202,13 @@ export function NotificationCenter() {
 
   const markReadMut = useMutation({
     mutationFn: (id: string) => markNotificationRead(token!, id),
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to mark notification as read."));
+    },
     onSuccess: (notification) => {
       const normalized = normalizeRead(notification);
-      queryClient.setQueryData(
-        queryKeys.notifications({ scope: "header" }),
+      queryClient.setQueriesData(
+        { queryKey: ["notifications"] },
         (old: Paginated<NotificationItem> | undefined) => {
           if (!old) return old;
           return {
@@ -212,10 +225,13 @@ export function NotificationCenter() {
 
   const markUnreadMut = useMutation({
     mutationFn: (id: string) => markNotificationUnread(token!, id),
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to mark notification as unread."));
+    },
     onSuccess: (notification) => {
       const normalized = normalizeRead(notification);
-      queryClient.setQueryData(
-        queryKeys.notifications({ scope: "header" }),
+      queryClient.setQueriesData(
+        { queryKey: ["notifications"] },
         (old: Paginated<NotificationItem> | undefined) => {
           if (!old) return old;
           return {
@@ -232,9 +248,12 @@ export function NotificationCenter() {
 
   const markAllReadMut = useMutation({
     mutationFn: () => markAllNotificationsRead(token!),
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Failed to mark all notifications as read."));
+    },
     onSuccess: () => {
-      queryClient.setQueryData(
-        queryKeys.notifications({ scope: "header" }),
+      queryClient.setQueriesData(
+        { queryKey: ["notifications"] },
         (old: Paginated<NotificationItem> | undefined) => {
           if (!old) return old;
           return {
@@ -248,6 +267,7 @@ export function NotificationCenter() {
         },
       );
       queryClient.setQueryData(queryKeys.notificationUnreadCount, { unread: 0 });
+      toast.success("All notifications marked as read.");
     },
   });
 
@@ -281,27 +301,39 @@ export function NotificationCenter() {
       </Button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-[min(92vw,380px)] overflow-hidden rounded-xl border border-oc-border bg-oc-bg-mid shadow-2xl">
+        <div className="absolute right-0 z-[120] mt-2 w-[min(92vw,380px)] overflow-hidden rounded-xl border border-oc-border bg-oc-panel shadow-[0_24px_50px_rgba(0,0,0,0.55)] ring-1 ring-black/35 max-sm:fixed max-sm:left-2 max-sm:right-2 max-sm:top-14 max-sm:mt-0 max-sm:w-auto">
           <div className="flex items-center justify-between border-b border-oc-border px-3 py-2.5">
             <p className="text-sm font-semibold text-oc-text">Notifications</p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-xs"
-              onClick={() => markAllReadMut.mutate()}
-              disabled={markAllReadMut.isPending || unreadCount === 0}
-            >
-              <CheckCheck className="mr-1 h-3.5 w-3.5" />
-              Mark all read
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Link href="/notifications" onClick={() => setOpen(false)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                >
+                  View all
+                </Button>
+              </Link>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => markAllReadMut.mutate()}
+                disabled={markAllReadMut.isPending || unreadCount === 0}
+              >
+                <CheckCheck className="mr-1 h-3.5 w-3.5" />
+                {markAllReadMut.isPending ? "Marking..." : "Mark all read"}
+              </Button>
+            </div>
           </div>
 
-          <div className="max-h-[70vh] overflow-y-auto p-2">
+          <div className="max-h-[70vh] overflow-y-auto bg-oc-panel p-2">
             {notificationsQuery.isLoading && (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, index) => (
-                  <Skeleton key={index} className="h-16 w-full rounded-lg" />
+                  <Skeleton key={index} className="h-16 w-full rounded-lg bg-oc-elevated" />
                 ))}
               </div>
             )}
@@ -315,7 +347,7 @@ export function NotificationCenter() {
             {!notificationsQuery.isLoading &&
               !notificationsQuery.error &&
               notifications.length === 0 && (
-                <p className="rounded-lg border border-dashed border-oc-border bg-oc-bg/35 p-4 text-sm text-oc-muted">
+                <p className="rounded-lg border border-dashed border-oc-border bg-oc-bg-mid p-4 text-sm text-oc-muted">
                   No notifications yet.
                 </p>
               )}
@@ -333,43 +365,51 @@ export function NotificationCenter() {
                   className={cn(
                     "mb-2 rounded-lg border p-3",
                     notification.isRead
-                      ? "border-oc-border/60 bg-oc-bg/35"
-                      : "border-oc-accent/35 bg-oc-panel/60",
+                      ? "border-oc-border bg-oc-bg-mid"
+                      : "border-oc-accent/35 bg-oc-elevated",
                   )}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-oc-text">
-                        {notification.title}
-                      </p>
-                      <p className="mt-1 text-sm text-oc-muted">
-                        {notification.message || notification.body || ""}
-                      </p>
-                      <p className="mt-1 text-xs text-oc-faint">
-                        {formatRelative(notification.createdAt)}
-                      </p>
+                  <Link
+                    href={route}
+                    onClick={() => setOpen(false)}
+                    className="block cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-oc-text">
+                          {notification.title}
+                        </p>
+                        <p className="mt-1 break-words text-sm text-oc-muted">
+                          {notification.message || notification.body || ""}
+                        </p>
+                        <p className="mt-1 text-xs text-oc-faint">
+                          {formatRelative(notification.createdAt)}
+                        </p>
+                      </div>
+                      {!notification.isRead && (
+                        <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-oc-accent" />
+                      )}
                     </div>
-                    {!notification.isRead && (
-                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-oc-accent" />
-                    )}
-                  </div>
+                  </Link>
 
-                  <div className="mt-2.5 flex items-center justify-between gap-2">
-                    <Link href={route} onClick={() => setOpen(false)}>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="h-8 px-2.5 text-xs"
-                      >
-                        Open
-                      </Button>
-                    </Link>
+                  <div className="mt-2.5 flex items-center justify-end gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="h-8 cursor-pointer px-2.5 text-xs"
+                      onClick={() => {
+                        setOpen(false);
+                        router.push(route);
+                      }}
+                    >
+                      Open
+                    </Button>
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-8 px-2 text-xs"
+                      className="h-8 cursor-pointer px-2 text-xs"
                       disabled={busy}
                       onClick={() => {
                         if (notification.isRead) {
@@ -380,7 +420,11 @@ export function NotificationCenter() {
                       }}
                     >
                       <Check className="mr-1 h-3.5 w-3.5" />
-                      {notification.isRead ? "Mark unread" : "Mark read"}
+                      {busy
+                        ? "Saving..."
+                        : notification.isRead
+                          ? "Mark unread"
+                          : "Mark read"}
                     </Button>
                   </div>
                 </div>

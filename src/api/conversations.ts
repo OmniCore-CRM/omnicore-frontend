@@ -53,7 +53,7 @@ export async function getConversation(
 export async function patchConversation(
   token: string,
   id: string,
-  body: { status: ConversationStatus },
+  body: { status?: ConversationStatus; assigneeId?: string | null },
 ): Promise<Conversation> {
   return apiFetch<Conversation>(`/conversations/${id}`, {
     method: "PATCH",

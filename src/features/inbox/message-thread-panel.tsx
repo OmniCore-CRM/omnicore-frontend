@@ -9,6 +9,7 @@ import {
   patchConversation,
   sendMessage,
 } from "@/api/conversations";
+import { listUsers } from "@/api/users";
 import { createTicketFromConversation, updateTicket } from "@/api/tickets";
 import { listSavedReplies } from "@/api/saved-replies";
 import { assignConversationTeam, listTeams } from "@/api/teams";
@@ -191,6 +192,14 @@ export function MessageThreadPanel({
     queryFn: () => listTeams(token!),
     enabled: !!token && !!selectedId,
     staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
+  });
+  const usersQuery = useQuery({
+    queryKey: queryKeys.users,
+    queryFn: () => listUsers(token!),
+    enabled: !!token && !!selectedId,
+    staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,
   });
@@ -389,6 +398,19 @@ export function MessageThreadPanel({
     onError: (error) =>
       toast.error(getErrorMessage(error, "Could not update conversation team")),
   });
+  const assigneeMut = useMutation({
+    mutationFn: (assigneeId: string | null) =>
+      patchConversation(token!, selectedId!, { assigneeId }),
+    onSuccess: (updated) => {
+      qc.setQueryData(queryKeys.conversation(updated.id), updated);
+      void qc.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success("Conversation assignee updated");
+    },
+    onError: (error) =>
+      toast.error(
+        getErrorMessage(error, "Could not update conversation assignee"),
+      ),
+  });
 
   const [draft, setDraft] = useState("");
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
@@ -580,6 +602,9 @@ export function MessageThreadPanel({
             {conversation?.team && (
               <Badge tone="accent">{conversation.team.name}</Badge>
             )}
+            {conversation?.assignee && (
+              <Badge tone="neutral">Assigned: {conversation.assignee.displayName || conversation.assignee.email}</Badge>
+            )}
             <label className="sm:hidden">
               <span className="sr-only">Conversation team</span>
               <select
@@ -592,6 +617,25 @@ export function MessageThreadPanel({
                 <option value="">No team</option>
                 {(teamsQuery.data ?? []).map((team) => (
                   <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="sm:hidden">
+              <span className="sr-only">Conversation assignee</span>
+              <select
+                aria-label="Conversation assignee mobile"
+                value={conversation?.assigneeId ?? ""}
+                onChange={(event) =>
+                  assigneeMut.mutate(event.target.value || null)
+                }
+                disabled={assigneeMut.isPending || !canAssignWork}
+                className="h-8 max-w-[140px] rounded-lg border border-oc-border bg-oc-panel px-2 text-xs font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
+              >
+                <option value="">Unassigned</option>
+                {(usersQuery.data ?? []).map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName || `${member.firstName} ${member.lastName}`.trim() || member.email}
+                  </option>
                 ))}
               </select>
             </label>
@@ -702,6 +746,23 @@ export function MessageThreadPanel({
               <option value="">No team</option>
               {(teamsQuery.data ?? []).map((team) => (
                 <option key={team.id} value={team.id}>{team.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="relative hidden sm:block">
+            <span className="sr-only">Conversation assignee</span>
+            <select
+              aria-label="Conversation assignee"
+              value={conversation?.assigneeId ?? ""}
+              onChange={(event) => assigneeMut.mutate(event.target.value || null)}
+              disabled={assigneeMut.isPending || !canAssignWork}
+              className="h-9 max-w-[152px] cursor-pointer rounded-lg border border-oc-border bg-oc-panel px-2.5 text-xs font-semibold text-oc-text outline-none focus-visible:ring-2 focus-visible:ring-oc-accent disabled:opacity-60"
+            >
+              <option value="">Unassigned</option>
+              {(usersQuery.data ?? []).map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.displayName || `${member.firstName} ${member.lastName}`.trim() || member.email}
+                </option>
               ))}
             </select>
           </label>

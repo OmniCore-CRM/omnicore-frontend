@@ -134,8 +134,8 @@ export default function ConversationsPage() {
               Conversations
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-oc-muted">
-              Review customer conversations with linked ticket ownership,
-              priority, and status context.
+              Review customer conversations with ownership, priority, and
+              status context.
             </p>
           </div>
           <Link href="/inbox" className="inline-flex">
@@ -213,7 +213,7 @@ export default function ConversationsPage() {
                   resetPagination();
                 }}
                 className={controlClass}
-                aria-label="Filter by ticket assignee"
+                aria-label="Filter by conversation assignee"
               >
                 <option value="">All assignees</option>
                 {(usersQuery.data ?? []).map((user) => (
@@ -374,7 +374,7 @@ function ConversationRow({ conversation }: { conversation: Conversation }) {
         )}
       </td>
       <td className="px-5 py-4 text-oc-muted">
-        {displayUser(ticket?.assignee)}
+        {displayUser(conversation.assignee)}
       </td>
       <td className="px-5 py-4 text-xs text-oc-faint">
         {conversation.updatedAt ? formatRelative(conversation.updatedAt) : "—"}
@@ -433,7 +433,7 @@ function ConversationCard({ conversation }: { conversation: Conversation }) {
       </div>
 
       <div className="grid gap-1 text-sm text-oc-muted">
-        <span>Assignee: {displayUser(ticket?.assignee)}</span>
+        <span>Assignee: {displayUser(conversation.assignee)}</span>
         <span>
           Updated {conversation.updatedAt ? formatRelative(conversation.updatedAt) : "—"}
         </span>

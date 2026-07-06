@@ -657,6 +657,13 @@ function CompanyUsersSettings({
     staleTime: 60_000,
   });
 
+  const teamsQuery = useQuery({
+    queryKey: queryKeys.teams,
+    queryFn: () => listTeams(token),
+    enabled: Boolean(token),
+    staleTime: 60_000,
+  });
+
   const refreshUsers = () =>
     qc.invalidateQueries({
       queryKey: queryKeys.users,
@@ -801,6 +808,27 @@ function CompanyUsersSettings({
       return matchesSearch && matchesRole && matchesStatus;
     });
   }, [usersQuery.data, search, roleFilter, statusFilter]);
+
+  const teamNamesByUserId = useMemo(() => {
+    const map = new Map<string, string[]>();
+
+    for (const team of teamsQuery.data ?? []) {
+      for (const member of team.members ?? []) {
+        const existing = map.get(member.id) ?? [];
+        existing.push(team.name);
+        map.set(member.id, existing);
+      }
+    }
+
+    for (const [userId, names] of map.entries()) {
+      const uniqueNames = Array.from(new Set(names)).sort((a, b) =>
+        a.localeCompare(b),
+      );
+      map.set(userId, uniqueNames);
+    }
+
+    return map;
+  }, [teamsQuery.data]);
 
   const canManageTarget = (target: AuthUser) => {
     if (!canManage || !user) return false;
@@ -1031,6 +1059,27 @@ function CompanyUsersSettings({
                     <p className="mt-1 text-xs uppercase text-oc-faint">
                       {roleLabel(item.role)} · {formatLifecycleStatus(itemStatus)}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(teamNamesByUserId.get(item.id) ?? []).slice(0, 3).map((teamName) => (
+                        <span
+                          key={`${item.id}-${teamName}`}
+                          className="max-w-full truncate rounded-full border border-oc-border bg-oc-panel px-2 py-0.5 text-[11px] font-medium text-oc-muted"
+                          title={teamName}
+                        >
+                          {teamName}
+                        </span>
+                      ))}
+                      {(teamNamesByUserId.get(item.id)?.length ?? 0) > 3 && (
+                        <span className="rounded-full border border-oc-border bg-oc-panel px-2 py-0.5 text-[11px] font-medium text-oc-muted">
+                          +{(teamNamesByUserId.get(item.id)?.length ?? 0) - 3} more
+                        </span>
+                      )}
+                      {(teamNamesByUserId.get(item.id)?.length ?? 0) === 0 && (
+                        <span className="rounded-full border border-dashed border-oc-border px-2 py-0.5 text-[11px] text-oc-faint">
+                          No teams
+                        </span>
+                      )}
+                    </div>
                     {itemStatus === "INVITED" && (
                       <p className="mt-1 text-xs uppercase text-oc-faint">
                         Invite: {formatInvitationState(invitationState)}

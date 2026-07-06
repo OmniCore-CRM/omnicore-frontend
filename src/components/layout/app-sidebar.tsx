@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  Briefcase,
   ChevronLeft,
   ChevronRight,
   X,
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/button";
 
 const links = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
+  { href: "/my-work", label: "My Work", icon: Briefcase },
   { href: "/conversations", label: "Conversations", icon: MessageSquare },
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/tickets", label: "Tickets", icon: Ticket },

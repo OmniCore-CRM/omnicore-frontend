@@ -20,6 +20,10 @@ const pageTitles: Record<string, { title: string; eyebrow: string }> = {
     title: "Inbox",
     eyebrow: "Realtime customer conversations",
   },
+  "/my-work": {
+    title: "My Work",
+    eyebrow: "Assigned tickets and conversations",
+  },
   "/conversations": {
     title: "Conversations",
     eyebrow: "Conversation history and channels",

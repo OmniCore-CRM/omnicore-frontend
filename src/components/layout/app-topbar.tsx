@@ -25,6 +25,10 @@ const pageTitles: Record<string, { title: string; eyebrow: string }> = {
     title: "My Work",
     eyebrow: "Assigned tickets and conversations",
   },
+  "/assignment-center": {
+    title: "Assignment Center",
+    eyebrow: "Assignment visibility and workload control",
+  },
   "/conversations": {
     title: "Conversations",
     eyebrow: "Conversation history and channels",

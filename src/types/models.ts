@@ -489,6 +489,107 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+export interface AssignmentCenterCounterSet {
+  myAssignedOpenTickets: number;
+  myAssignedConversations: number;
+  unreadAssignedWork: number;
+  pendingAssignedWork: number;
+  slaAtRisk: number;
+  slaBreached: number;
+  escalations: number;
+  recentlyAssigned: number;
+}
+
+export interface AssignmentCenterTicketItem {
+  id: string;
+  subject: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  slaStatus: SlaStatus;
+  updatedAt: string;
+  openRoute: string;
+  team?: {
+    id: string;
+    name: string;
+  } | null;
+  customer?: {
+    id: string;
+    firstName: string;
+    lastName?: string | null;
+    email?: string | null;
+  } | null;
+}
+
+export interface AssignmentCenterConversationItem {
+  id: string;
+  channel: ConversationChannel;
+  status: ConversationStatus;
+  updatedAt: string;
+  openRoute: string;
+  team?: {
+    id: string;
+    name: string;
+  } | null;
+  customer?: {
+    id: string;
+    firstName: string;
+    lastName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
+  latestMessage?: {
+    id: string;
+    content: string;
+    sender: MessageSender;
+    createdAt: string;
+  } | null;
+}
+
+export interface AssignmentCenterRecentAssignmentItem {
+  id: string;
+  type: NotificationItem["type"];
+  title: string;
+  message: string;
+  entityType: string;
+  entityId: string;
+  isRead: boolean;
+  createdAt: string;
+  openRoute: string | null;
+}
+
+export interface AssignmentCenterTeamWorkloadItem {
+  user: {
+    id: string;
+    role: UserRole;
+    displayName: string;
+    email: string;
+    teams: Array<{
+      id: string;
+      name: string;
+    }>;
+  };
+  counts: {
+    assignedOpenTickets: number;
+    assignedConversations: number;
+    pendingAssignedWork: number;
+    unreadAssignedWork: number;
+    escalations: number;
+    slaAtRisk: number;
+    slaBreached: number;
+  };
+}
+
+export interface AssignmentCenterOverview {
+  scope: {
+    canViewTeamWorkload: boolean;
+  };
+  counters: AssignmentCenterCounterSet;
+  myTickets: AssignmentCenterTicketItem[];
+  myConversations: AssignmentCenterConversationItem[];
+  recentAssignments: AssignmentCenterRecentAssignmentItem[];
+  teamWorkload: AssignmentCenterTeamWorkloadItem[] | null;
+}
+
 export type AnalyticsPresetRange = "7d" | "30d" | "90d";
 export type AnalyticsRange = AnalyticsPresetRange | "all" | "custom";
 

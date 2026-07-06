@@ -568,12 +568,21 @@ function TicketsWorkspace() {
 
   const tickets = data?.items ?? [];
   const ticketSummary = data?.summary ?? buildTicketSummary(tickets, data?.total);
+  const updatingStatus =
+    updateMut.isPending &&
+    Object.prototype.hasOwnProperty.call(updateMut.variables ?? {}, "status");
+  const updatingPriority =
+    updateMut.isPending &&
+    Object.prototype.hasOwnProperty.call(updateMut.variables ?? {}, "priority");
+  const updatingAssignee =
+    updateMut.isPending &&
+    Object.prototype.hasOwnProperty.call(updateMut.variables ?? {}, "assigneeId");
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden bg-oc-bg">
       <section
         className={cn(
-          "min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-4 md:py-4 xl:px-6 xl:py-5",
+          "min-h-0 flex-1 overflow-y-auto px-3 pb-0 pt-4 md:px-4 md:pb-0 md:pt-4 xl:px-6 xl:pb-0 xl:pt-5",
           selectedId && "hidden lg:block",
         )}
       >
@@ -1028,6 +1037,9 @@ function TicketsWorkspace() {
         onBack={() => setSelectedId(null)}
         updateMutate={(body) => updateMut.mutate(body)}
         updating={updateMut.isPending}
+        updatingStatus={updatingStatus}
+        updatingPriority={updatingPriority}
+        updatingAssignee={updatingAssignee}
         teamMutate={(teamId) => teamMut.mutate(teamId)}
         updatingTeam={teamMut.isPending}
         noteMutate={() => noteMut.mutate()}
@@ -1400,6 +1412,9 @@ function TicketDetailPanel({
   onBack,
   updateMutate,
   updating,
+  updatingStatus,
+  updatingPriority,
+  updatingAssignee,
   teamMutate,
   updatingTeam,
   noteMutate,
@@ -1430,6 +1445,9 @@ function TicketDetailPanel({
     assigneeId?: string | null;
   }) => void;
   updating: boolean;
+  updatingStatus: boolean;
+  updatingPriority: boolean;
+  updatingAssignee: boolean;
   teamMutate: (teamId: string | null) => void;
   updatingTeam: boolean;
   noteMutate: () => void;
@@ -1483,7 +1501,7 @@ function TicketDetailPanel({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-0 pt-4 md:px-5 md:pb-0 md:pt-5">
           {!selectedId && (
             <div className="rounded-xl border border-dashed border-oc-border bg-oc-panel/30 p-8 text-center">
               <FileText className="mx-auto h-8 w-8 text-oc-faint" />
@@ -1592,6 +1610,12 @@ function TicketDetailPanel({
                         </option>
                       ))}
                     </select>
+                    {updatingStatus && (
+                      <span className="mt-1 inline-flex items-center gap-1 text-xs text-oc-muted">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Updating status...
+                      </span>
+                    )}
                   </label>
 
                   <label className="block text-sm font-medium text-oc-text">
@@ -1612,6 +1636,12 @@ function TicketDetailPanel({
                         </option>
                       ))}
                     </select>
+                    {updatingPriority && (
+                      <span className="mt-1 inline-flex items-center gap-1 text-xs text-oc-muted">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Updating priority...
+                      </span>
+                    )}
                   </label>
 
                   <label className="block text-sm font-medium text-oc-text">
@@ -1634,6 +1664,12 @@ function TicketDetailPanel({
                         </option>
                       ))}
                     </select>
+                    {updatingAssignee && (
+                      <span className="mt-1 inline-flex items-center gap-1 text-xs text-oc-muted">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Updating assignee...
+                      </span>
+                    )}
                   </label>
                   <label className="block text-sm font-medium text-oc-text">
                     Team queue
@@ -1652,6 +1688,12 @@ function TicketDetailPanel({
                         </option>
                       ))}
                     </select>
+                    {updatingTeam && (
+                      <span className="mt-1 inline-flex items-center gap-1 text-xs text-oc-muted">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Updating team...
+                      </span>
+                    )}
                   </label>
                 </div>
               </Card>

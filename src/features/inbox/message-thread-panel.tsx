@@ -551,6 +551,13 @@ export function MessageThreadPanel({
     linkedTicket &&
       ["OPEN", "PENDING", "ESCALATED"].includes(linkedTicket.status),
   );
+  const pendingConversationControlLabel = assigneeMut.isPending
+    ? "Updating assignee..."
+    : teamMut.isPending
+      ? "Updating team..."
+      : statusMut.isPending
+        ? "Updating status..."
+        : null;
 
   const createTicket = () => {
     if (!selectedId || createTicketMut.isPending) return;
@@ -681,7 +688,7 @@ export function MessageThreadPanel({
               disabled={createTicketMut.isPending}
               onClick={createTicket}
             >
-              Create New Ticket
+              {createTicketMut.isPending ? "Creating..." : "Create New Ticket"}
             </Button>
           )}
           {linkedTicket && (
@@ -766,6 +773,12 @@ export function MessageThreadPanel({
               ))}
             </select>
           </label>
+          {pendingConversationControlLabel && (
+            <span className="inline-flex items-center gap-1 text-xs text-oc-muted">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {pendingConversationControlLabel}
+            </span>
+          )}
         </div>
       </header>
 

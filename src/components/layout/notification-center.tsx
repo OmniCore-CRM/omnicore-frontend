@@ -302,15 +302,15 @@ export function NotificationCenter() {
 
       {open && (
         <div className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+56px)] z-[120] mt-0 w-[calc(100vw-24px)] max-w-[380px] overflow-hidden rounded-xl border border-oc-border bg-oc-panel shadow-[0_24px_50px_rgba(0,0,0,0.55)] ring-1 ring-black/35 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[min(92vw,380px)]">
-          <div className="flex items-center justify-between border-b border-oc-border px-3 py-2.5">
-            <p className="text-sm font-semibold text-oc-text">Notifications</p>
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2 border-b border-oc-border px-3 py-2.5 sm:flex-nowrap sm:justify-between">
+            <p className="min-w-0 text-sm font-semibold text-oc-text">Notifications</p>
+            <div className="ml-auto flex w-full items-center justify-end gap-1.5 sm:w-auto">
               <Link href="/notifications" onClick={() => setOpen(false)}>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 px-2 text-xs"
+                  className="h-8 shrink-0 px-2 text-xs"
                 >
                   View all
                 </Button>
@@ -319,7 +319,7 @@ export function NotificationCenter() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 px-2 text-xs"
+                className="h-8 shrink-0 px-2 text-xs"
                 onClick={() => markAllReadMut.mutate()}
                 disabled={markAllReadMut.isPending || unreadCount === 0}
               >

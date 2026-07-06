@@ -116,7 +116,7 @@ export function AppTopbar({ onMenuClick }: { onMenuClick: () => void }) {
     "Agent";
 
   return (
-    <header className="flex min-h-14 shrink-0 items-center gap-2.5 border-b border-oc-border bg-oc-bg/95 px-2.5 backdrop-blur sm:px-3 lg:px-4">
+    <header className="relative z-40 flex min-h-14 shrink-0 items-center gap-2.5 border-b border-oc-border bg-oc-bg/95 px-2.5 backdrop-blur sm:px-3 lg:px-4">
       <Button
         type="button"
         variant="ghost"

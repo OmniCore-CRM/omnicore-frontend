@@ -1501,7 +1501,7 @@ function TicketDetailPanel({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-0 pt-4 md:px-5 md:pb-0 md:pt-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-0 pt-4 [contain:layout_paint_size] md:px-5 md:pb-0 md:pt-5">
           {!selectedId && (
             <div className="rounded-xl border border-dashed border-oc-border bg-oc-panel/30 p-8 text-center">
               <FileText className="mx-auto h-8 w-8 text-oc-faint" />

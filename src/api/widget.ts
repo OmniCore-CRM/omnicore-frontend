@@ -54,6 +54,13 @@ export async function updateWidgetInstallation(
   body: {
     enabled?: boolean;
     allowedDomains?: string[];
+    companyDisplayName?: string;
+    welcomeTitle?: string;
+    welcomeSubtitle?: string;
+    chatGreeting?: string;
+    launcherLabel?: string;
+    footerNote?: string;
+    messageShortcuts?: string[];
   },
 ): Promise<WidgetInstallation> {
   return apiFetch<WidgetInstallation>(
@@ -71,6 +78,13 @@ export async function bootstrapWidget(
 ): Promise<{
   publicKey: string;
   enabled: boolean;
+  companyDisplayName?: string | null;
+  welcomeTitle?: string | null;
+  welcomeSubtitle?: string | null;
+  chatGreeting?: string | null;
+  launcherLabel?: string | null;
+  footerNote?: string | null;
+  messageShortcuts?: string[];
 }> {
   const q = new URLSearchParams({ key: publicKey });
   return apiFetch(`/widget/bootstrap?${q.toString()}`);

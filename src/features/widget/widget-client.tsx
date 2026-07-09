@@ -29,8 +29,19 @@ type StoredWidgetSession = {
   visitorEmail?: string;
 };
 
+type WidgetConfig = {
+  companyDisplayName?: string | null;
+  chatGreeting?: string;
+  launcherLabel?: string;
+  messageShortcuts?: string[];
+};
+
 type WidgetClientProps = {
   publicKey: string;
+  /** When true, skip own bootstrap call (parent already bootstrapped). */
+  preBootstrapped?: boolean;
+  /** Branding/copy overrides from the bootstrap config. */
+  widgetConfig?: WidgetConfig;
 };
 
 const socketEvents = {
@@ -40,7 +51,7 @@ const socketEvents = {
   attachmentCreated: "attachment_created",
 };
 
-const messageShortcuts = [
+const defaultMessageShortcuts = [
   "I need help",
   "I want to make a complaint",
   "I have a billing issue",
@@ -71,10 +82,25 @@ function formatMessageTime(value: string) {
   }).format(new Date(value));
 }
 
-export function WidgetClient({ publicKey }: WidgetClientProps) {
+export function WidgetClient({
+  publicKey,
+  preBootstrapped = false,
+  widgetConfig,
+}: WidgetClientProps) {
   const [open, setOpen] = useState(true);
-  const [bootstrapped, setBootstrapped] = useState(false);
-  const [session, setSession] = useState<StoredWidgetSession | null>(null);
+  // When pre-bootstrapped by the parent, start already bootstrapped so the
+  // chat UI is immediately available without a second network call.
+  const [bootstrapped, setBootstrapped] = useState(() => preBootstrapped);
+  const [session, setSession] = useState<StoredWidgetSession | null>(() => {
+    if (!preBootstrapped || !publicKey) return null;
+    try {
+      const stored = localStorage.getItem(storageKey(publicKey));
+      return stored ? (JSON.parse(stored) as StoredWidgetSession) : null;
+    } catch {
+      localStorage.removeItem(storageKey(publicKey));
+      return null;
+    }
+  });
   const [messages, setMessages] = useState<Message[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [visitorName, setVisitorName] = useState("");
@@ -97,12 +123,25 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
     string | null
   >(null);
   const [connected, setConnected] = useState(false);
+
+  // Resolved config values — fall back to built-in defaults
+  const headerTitle =
+    widgetConfig?.companyDisplayName?.trim() || "OmniCore Chat";
+  const chatGreeting = widgetConfig?.chatGreeting?.trim() || "Hi there";
+  const launcherLabel = widgetConfig?.launcherLabel?.trim() || "Chat";
+  const shortcuts =
+    widgetConfig?.messageShortcuts && widgetConfig.messageShortcuts.length > 0
+      ? widgetConfig.messageShortcuts
+      : defaultMessageShortcuts;
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const tempMessageCounter = useRef(0);
 
   const canChat = Boolean(publicKey && bootstrapped);
 
   useEffect(() => {
+    // Skip bootstrap when parent already validated the widget key.
+    if (preBootstrapped) return;
+
     let cancelled = false;
 
     async function bootstrap() {
@@ -132,7 +171,7 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
     return () => {
       cancelled = true;
     };
-  }, [publicKey]);
+  }, [publicKey, preBootstrapped]);
 
   useEffect(() => {
     if (!session) return;
@@ -379,7 +418,7 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
         onClick={() => setOpen(true)}
         className="fixed right-4 bottom-4 min-h-12 min-w-20 rounded-full bg-slate-950 px-5 text-sm font-semibold text-white shadow-xl shadow-slate-900/20 ring-1 ring-white/20 transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
       >
-        Chat
+        {launcherLabel}
       </button>
     );
   }
@@ -389,7 +428,7 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
       <header className="flex shrink-0 items-center justify-between gap-4 bg-slate-950 px-5 py-4 text-white">
         <div className="min-w-0">
           <h1 className="truncate text-base font-semibold">
-            OmniCore Chat
+            {headerTitle}
           </h1>
           <p className="mt-0.5 flex items-center gap-2 text-xs text-slate-300">
             <span
@@ -431,7 +470,7 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
           >
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
-                Hi there
+                {chatGreeting}
               </h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">
                 Send a message and the team will reply here.
@@ -456,7 +495,7 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
                 Common requests
               </p>
               <div className="flex flex-wrap gap-2">
-                {messageShortcuts.map((shortcut) => (
+                {shortcuts.map((shortcut) => (
                   <button
                     key={shortcut}
                     type="button"
@@ -547,7 +586,7 @@ export function WidgetClient({ publicKey }: WidgetClientProps) {
             {showComposerShortcuts && (
               <div className="shrink-0 border-t border-slate-200 bg-white px-4 pt-3">
                 <div className="flex flex-wrap gap-2">
-                  {messageShortcuts.map((shortcut) => (
+                  {shortcuts.map((shortcut) => (
                     <button
                       key={shortcut}
                       type="button"

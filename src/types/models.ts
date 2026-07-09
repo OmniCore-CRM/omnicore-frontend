@@ -288,6 +288,13 @@ export interface WidgetInstallation {
   publicKey: string;
   enabled: boolean;
   allowedDomains: string[];
+  companyDisplayName?: string | null;
+  welcomeTitle?: string | null;
+  welcomeSubtitle?: string | null;
+  chatGreeting?: string | null;
+  launcherLabel?: string | null;
+  footerNote?: string | null;
+  messageShortcuts?: string[];
   createdAt?: string;
   updatedAt?: string;
 }

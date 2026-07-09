@@ -253,6 +253,46 @@ export default function SettingsPage() {
   const installation = widgetQuery.data?.[0] ?? null;
   const [domainDraft, setDomainDraft] = useState<string | null>(null);
 
+  type LandingDraft = {
+    companyDisplayName: string;
+    welcomeTitle: string;
+    welcomeSubtitle: string;
+    chatGreeting: string;
+    launcherLabel: string;
+    footerNote: string;
+    messageShortcutsText: string;
+  };
+  const [landingDraft, setLandingDraft] = useState<LandingDraft | null>(null);
+
+  // Derive effective landing values: user-edited draft takes priority;
+  // fall back to installation data so inputs are pre-populated without a useEffect.
+  const effectiveLanding: LandingDraft | null = landingDraft ?? (installation
+    ? {
+        companyDisplayName: installation.companyDisplayName ?? "",
+        welcomeTitle: installation.welcomeTitle ?? "",
+        welcomeSubtitle: installation.welcomeSubtitle ?? "",
+        chatGreeting: installation.chatGreeting ?? "",
+        launcherLabel: installation.launcherLabel ?? "",
+        footerNote: installation.footerNote ?? "",
+        messageShortcutsText: (installation.messageShortcuts ?? []).join("\n"),
+      }
+    : null);
+
+  function patchLanding(field: keyof LandingDraft, value: string) {
+    setLandingDraft((prev) => {
+      const base: LandingDraft = prev ?? {
+        companyDisplayName: installation?.companyDisplayName ?? "",
+        welcomeTitle: installation?.welcomeTitle ?? "",
+        welcomeSubtitle: installation?.welcomeSubtitle ?? "",
+        chatGreeting: installation?.chatGreeting ?? "",
+        launcherLabel: installation?.launcherLabel ?? "",
+        footerNote: installation?.footerNote ?? "",
+        messageShortcutsText: (installation?.messageShortcuts ?? []).join("\n"),
+      };
+      return { ...base, [field]: value };
+    });
+  }
+
   const createWidgetMutation = useMutation({
     mutationFn: () =>
       createWidgetInstallation(token ?? "", {
@@ -270,9 +310,20 @@ export default function SettingsPage() {
   });
 
   const updateWidgetMutation = useMutation({
-    mutationFn: (body: { enabled?: boolean; allowedDomains?: string[] }) =>
+    mutationFn: (body: {
+      enabled?: boolean;
+      allowedDomains?: string[];
+      companyDisplayName?: string;
+      welcomeTitle?: string;
+      welcomeSubtitle?: string;
+      chatGreeting?: string;
+      launcherLabel?: string;
+      footerNote?: string;
+      messageShortcuts?: string[];
+    }) =>
       updateWidgetInstallation(token ?? "", installation!.id, body),
     onSuccess: async () => {
+      setLandingDraft(null); // allow re-init from fresh data
       await queryClient.invalidateQueries({
         queryKey: queryKeys.widgetInstallations,
       });
@@ -567,6 +618,163 @@ export default function SettingsPage() {
                       }
                     >
                       Copy snippet
+                    </Button>
+                  </div>
+
+                  {/* Landing page customisation */}
+                  <div className="space-y-4 rounded-lg border border-oc-border bg-oc-bg/40 p-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-oc-text">
+                        Landing page
+                      </h3>
+                      <p className="mt-0.5 text-xs text-oc-muted">
+                        Customise the public support page visitors see at{" "}
+                        <span className="font-mono">/widget?key=…</span>
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="text-xs text-oc-faint">
+                          Company display name
+                        </label>
+                        <Input
+                          className="mt-1"
+                          placeholder="Acme Corp"
+                          maxLength={120}
+                          value={effectiveLanding?.companyDisplayName ?? ""}
+                          onChange={(e) =>
+                            patchLanding("companyDisplayName", e.target.value)
+                          }
+                          disabled={!effectiveLanding}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-oc-faint">
+                          Launcher button label
+                        </label>
+                        <Input
+                          className="mt-1"
+                          placeholder="Chat (default)"
+                          maxLength={60}
+                          value={effectiveLanding?.launcherLabel ?? ""}
+                          onChange={(e) =>
+                            patchLanding("launcherLabel", e.target.value)
+                          }
+                          disabled={!effectiveLanding}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-oc-faint">
+                        Welcome title
+                      </label>
+                      <Input
+                        className="mt-1"
+                        placeholder="How can we help? (default)"
+                        maxLength={200}
+                        value={effectiveLanding?.welcomeTitle ?? ""}
+                        onChange={(e) =>
+                          patchLanding("welcomeTitle", e.target.value)
+                        }
+                        disabled={!effectiveLanding}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-oc-faint">
+                        Welcome subtitle
+                      </label>
+                      <Textarea
+                        className="mt-1"
+                        placeholder="Start a conversation and we'll get back to you as soon as possible. (default)"
+                        maxLength={400}
+                        value={effectiveLanding?.welcomeSubtitle ?? ""}
+                        onChange={(e) =>
+                          patchLanding("welcomeSubtitle", e.target.value)
+                        }
+                        disabled={!effectiveLanding}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-oc-faint">
+                        Chat greeting
+                      </label>
+                      <Input
+                        className="mt-1"
+                        placeholder="Hi there (default)"
+                        maxLength={200}
+                        value={effectiveLanding?.chatGreeting ?? ""}
+                        onChange={(e) =>
+                          patchLanding("chatGreeting", e.target.value)
+                        }
+                        disabled={!effectiveLanding}
+                      />
+                      <p className="mt-1 text-xs text-oc-faint">
+                        Shown inside the chat panel when a visitor opens the widget.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-oc-faint">
+                        Message shortcuts
+                      </label>
+                      <Textarea
+                        className="mt-1 font-mono text-xs"
+                        placeholder={"I need help\nI have a billing issue\nI want to speak to support"}
+                        value={effectiveLanding?.messageShortcutsText ?? ""}
+                        onChange={(e) =>
+                          patchLanding("messageShortcutsText", e.target.value)
+                        }
+                        disabled={!effectiveLanding}
+                      />
+                      <p className="mt-1 text-xs text-oc-faint">
+                        One shortcut per line. Maximum 6. Shown as quick-reply chips in the chat.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-oc-faint">
+                        Footer note
+                      </label>
+                      <Input
+                        className="mt-1"
+                        placeholder="Optional footer note on the landing page"
+                        maxLength={400}
+                        value={effectiveLanding?.footerNote ?? ""}
+                        onChange={(e) =>
+                          patchLanding("footerNote", e.target.value)
+                        }
+                        disabled={!effectiveLanding}
+                      />
+                    </div>
+
+                    <Button
+                      type="button"
+                      disabled={updateWidgetMutation.isPending || !effectiveLanding}
+                      onClick={() => {
+                        if (!effectiveLanding) return;
+                        const shortcuts = effectiveLanding.messageShortcutsText
+                          .split("\n")
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                          .slice(0, 6);
+                        updateWidgetMutation.mutate({
+                          companyDisplayName: effectiveLanding.companyDisplayName,
+                          welcomeTitle: effectiveLanding.welcomeTitle,
+                          welcomeSubtitle: effectiveLanding.welcomeSubtitle,
+                          chatGreeting: effectiveLanding.chatGreeting,
+                          launcherLabel: effectiveLanding.launcherLabel,
+                          footerNote: effectiveLanding.footerNote,
+                          messageShortcuts: shortcuts,
+                        });
+                      }}
+                    >
+                      {updateWidgetMutation.isPending
+                        ? "Saving…"
+                        : "Save landing page"}
                     </Button>
                   </div>
                 </div>

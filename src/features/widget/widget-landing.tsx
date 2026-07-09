@@ -76,7 +76,7 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
       : [...WIDGET_DEFAULTS.messageShortcuts];
 
   return (
-    <main className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-oc-bg text-oc-text">
+    <main className="relative flex min-h-screen w-full flex-col bg-oc-bg text-oc-text">
       {/* Background gradient */}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_10%,rgba(124,58,237,0.15),transparent_40%),radial-gradient(circle_at_80%_5%,rgba(52,211,153,0.10),transparent_35%)]" />
 

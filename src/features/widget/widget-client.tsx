@@ -466,7 +466,7 @@ export function WidgetClient({
         {canChat && !session && (
           <form
             onSubmit={startChat}
-            className="flex flex-1 flex-col justify-center gap-4 p-5"
+            className="flex flex-1 flex-col overflow-y-auto gap-4 p-5"
           >
             <div>
               <h2 className="text-lg font-semibold text-slate-950">

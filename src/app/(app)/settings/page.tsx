@@ -3237,7 +3237,7 @@ function WidgetFaqSettings({
                   {entry.answer}
                 </p>
               </div>
-              <div className="flex shrink-0 gap-1">
+              <div className="flex flex-col gap-1 sm:flex-row sm:shrink-0 w-full sm:w-auto">
                 <Button
                   type="button"
                   size="sm"
@@ -3245,6 +3245,7 @@ function WidgetFaqSettings({
                   disabled={busy || index === 0}
                   onClick={() => handleMoveUp(index)}
                   aria-label="Move up"
+                  className="w-full sm:w-auto"
                 >
                   ↑
                 </Button>
@@ -3255,6 +3256,7 @@ function WidgetFaqSettings({
                   disabled={busy || index === entries.length - 1}
                   onClick={() => handleMoveDown(index)}
                   aria-label="Move down"
+                  className="w-full sm:w-auto"
                 >
                   ↓
                 </Button>
@@ -3264,6 +3266,7 @@ function WidgetFaqSettings({
                   variant="secondary"
                   disabled={busy}
                   onClick={() => startEdit(entry)}
+                  className="w-full sm:w-auto"
                 >
                   Edit
                 </Button>
@@ -3273,6 +3276,7 @@ function WidgetFaqSettings({
                   variant="danger"
                   disabled={busy}
                   onClick={() => deleteMutation.mutate(entry.id)}
+                  className="w-full sm:w-auto"
                 >
                   {deleteMutation.isPending && deleteMutation.variables === entry.id
                     ? "Deleting…"

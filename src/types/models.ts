@@ -299,6 +299,17 @@ export interface WidgetInstallation {
   updatedAt?: string;
 }
 
+export interface WidgetFaqEntry {
+  id: string;
+  widgetInstallationId: string;
+  companyId: string;
+  question: string;
+  answer: string;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface SavedReply {
   id: string;
   companyId: string;

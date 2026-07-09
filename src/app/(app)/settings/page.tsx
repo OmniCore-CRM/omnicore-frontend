@@ -13,6 +13,10 @@ import {
   createWidgetInstallation,
   listWidgetInstallations,
   updateWidgetInstallation,
+  listWidgetFaqEntries,
+  createWidgetFaqEntry,
+  updateWidgetFaqEntry,
+  deleteWidgetFaqEntry,
 } from "@/api/widget";
 import {
   createSavedReply,
@@ -70,6 +74,7 @@ import type {
   TicketPriority,
   UserLifecycleStatus,
   UserRole,
+  WidgetFaqEntry,
 } from "@/types/models";
 import { Permissions, hasPermission, roleLabel } from "@/lib/permissions";
 
@@ -778,6 +783,14 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                 </div>
+              )}
+
+              {/* FAQ management */}
+              {installation && (
+                <WidgetFaqSettings
+                  token={token ?? ""}
+                  installationId={installation.id}
+                />
               )}
             </Card>
           )}
@@ -3018,6 +3031,314 @@ function TagsSettings({
           ))}
         </div>
       </Card>
+    </div>
+  );
+}
+
+// ===== Widget FAQ Management =====
+
+function WidgetFaqSettings({
+  token,
+  installationId,
+}: {
+  token: string;
+  installationId: string;
+}) {
+  const queryClient = useQueryClient();
+  const faqQuery = useQuery({
+    queryKey: queryKeys.widgetFaqEntries(installationId),
+    queryFn: () => listWidgetFaqEntries(token, installationId),
+    enabled: Boolean(token && installationId),
+  });
+  const entries: WidgetFaqEntry[] = faqQuery.data ?? [];
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [newQ, setNewQ] = useState("");
+  const [newA, setNewA] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editQ, setEditQ] = useState("");
+  const [editA, setEditA] = useState("");
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.widgetFaqEntries(installationId),
+    });
+
+  const createMutation = useMutation({
+    mutationFn: (body: { question: string; answer: string; sortOrder: number }) =>
+      createWidgetFaqEntry(token, installationId, body),
+    onSuccess: async () => {
+      await invalidate();
+      setShowAdd(false);
+      setNewQ("");
+      setNewA("");
+      toast.success("FAQ entry added");
+    },
+    onError: (err) => toast.error(getErrorMessage(err, "Could not add FAQ")),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string;
+      question?: string;
+      answer?: string;
+      sortOrder?: number;
+    }) => updateWidgetFaqEntry(token, installationId, id, body),
+    onSuccess: async () => {
+      await invalidate();
+      setEditingId(null);
+      toast.success("FAQ entry updated");
+    },
+    onError: (err) => toast.error(getErrorMessage(err, "Could not update FAQ")),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteWidgetFaqEntry(token, installationId, id),
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("FAQ entry deleted");
+    },
+    onError: (err) => toast.error(getErrorMessage(err, "Could not delete FAQ")),
+  });
+
+  function startEdit(entry: WidgetFaqEntry) {
+    setEditingId(entry.id);
+    setEditQ(entry.question);
+    setEditA(entry.answer);
+    setShowAdd(false);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function handleMoveUp(index: number) {
+    if (index === 0) return;
+    const a = entries[index];
+    const b = entries[index - 1];
+    await Promise.all([
+      updateMutation.mutateAsync({ id: a.id, sortOrder: b.sortOrder }),
+      updateMutation.mutateAsync({ id: b.id, sortOrder: a.sortOrder }),
+    ]);
+  }
+
+  async function handleMoveDown(index: number) {
+    if (index === entries.length - 1) return;
+    const a = entries[index];
+    const b = entries[index + 1];
+    await Promise.all([
+      updateMutation.mutateAsync({ id: a.id, sortOrder: b.sortOrder }),
+      updateMutation.mutateAsync({ id: b.id, sortOrder: a.sortOrder }),
+    ]);
+  }
+
+  const busy = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-oc-border bg-oc-bg/40 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-oc-text">FAQ</h3>
+          <p className="mt-0.5 text-xs text-oc-muted">
+            Shown on the public support landing page as an accordion.
+          </p>
+        </div>
+        {!showAdd && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => {
+              setShowAdd(true);
+              setEditingId(null);
+            }}
+          >
+            Add question
+          </Button>
+        )}
+      </div>
+
+      {faqQuery.isLoading && (
+        <p className="text-xs text-oc-muted">Loading FAQ…</p>
+      )}
+
+      {!faqQuery.isLoading && entries.length === 0 && !showAdd && (
+        <p className="text-xs text-oc-faint">
+          No FAQ entries yet. Click &quot;Add question&quot; to get started.
+        </p>
+      )}
+
+      {/* Existing entries */}
+      <div className="space-y-2">
+        {entries.map((entry, index) =>
+          editingId === entry.id ? (
+            <div
+              key={entry.id}
+              className="space-y-2 rounded-lg border border-oc-accent-2/30 bg-oc-panel/80 p-3"
+            >
+              <div>
+                <label className="text-xs text-oc-faint">Question</label>
+                <Input
+                  className="mt-1"
+                  value={editQ}
+                  maxLength={300}
+                  onChange={(e) => setEditQ(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-oc-faint">Answer</label>
+                <Textarea
+                  className="mt-1"
+                  value={editA}
+                  maxLength={1000}
+                  onChange={(e) => setEditA(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={updateMutation.isPending || !editQ.trim() || !editA.trim()}
+                  onClick={() =>
+                    updateMutation.mutate({
+                      id: entry.id,
+                      question: editQ.trim(),
+                      answer: editA.trim(),
+                    })
+                  }
+                >
+                  {updateMutation.isPending ? "Saving…" : "Save"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={updateMutation.isPending}
+                  onClick={cancelEdit}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div
+              key={entry.id}
+              className="flex min-w-0 flex-wrap items-start gap-3 rounded-lg border border-oc-border bg-oc-panel/60 p-3"
+            >
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="truncate text-xs font-semibold text-oc-text">
+                  {entry.question}
+                </p>
+                <p className="line-clamp-2 text-xs text-oc-muted">
+                  {entry.answer}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy || index === 0}
+                  onClick={() => handleMoveUp(index)}
+                  aria-label="Move up"
+                >
+                  ↑
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy || index === entries.length - 1}
+                  onClick={() => handleMoveDown(index)}
+                  aria-label="Move down"
+                >
+                  ↓
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => startEdit(entry)}
+                >
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="danger"
+                  disabled={busy}
+                  onClick={() => deleteMutation.mutate(entry.id)}
+                >
+                  {deleteMutation.isPending && deleteMutation.variables === entry.id
+                    ? "Deleting…"
+                    : "Delete"}
+                </Button>
+              </div>
+            </div>
+          ),
+        )}
+      </div>
+
+      {/* Add form */}
+      {showAdd && (
+        <div className="space-y-2 rounded-lg border border-oc-accent-2/30 bg-oc-panel/80 p-3">
+          <p className="text-xs font-semibold text-oc-text">New question</p>
+          <div>
+            <label className="text-xs text-oc-faint">Question</label>
+            <Input
+              className="mt-1"
+              placeholder="e.g. How long does support take?"
+              value={newQ}
+              maxLength={300}
+              onChange={(e) => setNewQ(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-oc-faint">Answer</label>
+            <Textarea
+              className="mt-1"
+              placeholder="e.g. Usually within 24 hours."
+              value={newA}
+              maxLength={1000}
+              onChange={(e) => setNewA(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={createMutation.isPending || !newQ.trim() || !newA.trim()}
+              onClick={() =>
+                createMutation.mutate({
+                  question: newQ.trim(),
+                  answer: newA.trim(),
+                  sortOrder: entries.length * 10,
+                })
+              }
+            >
+              {createMutation.isPending ? "Adding…" : "Add FAQ"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={createMutation.isPending}
+              onClick={() => {
+                setShowAdd(false);
+                setNewQ("");
+                setNewA("");
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

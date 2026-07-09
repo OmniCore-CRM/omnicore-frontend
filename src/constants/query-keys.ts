@@ -24,6 +24,8 @@ export const queryKeys = {
   assignmentRules: ["assignment-rules"] as const,
   emailAccounts: ["email-accounts"] as const,
   widgetInstallations: ["widget-installations"] as const,
+  widgetFaqEntries: (installationId: string) =>
+    ["widget-faq-entries", installationId] as const,
   notifications: (params?: Record<string, string | undefined>) =>
     ["notifications", params ?? {}] as const,
   notificationUnreadCount: ["notification-unread-count"] as const,

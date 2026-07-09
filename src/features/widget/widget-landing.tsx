@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { bootstrapWidget } from "@/api/widget";
 import { WidgetClient } from "./widget-client";
+import { ChevronDown } from "lucide-react";
 
 type BootstrapConfig = Awaited<ReturnType<typeof bootstrapWidget>>;
 
@@ -101,6 +102,26 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
         </p>
       </div>
 
+      {/* FAQ Accordion */}
+      {config?.faqEntries && config.faqEntries.length > 0 && (
+        <section className="w-full border-t border-oc-border bg-oc-panel/40 px-4 py-12">
+          <div className="mx-auto max-w-xl space-y-4">
+            <h2 className="text-lg font-semibold text-oc-text">
+              Frequently Asked Questions
+            </h2>
+            <div className="space-y-2">
+              {config.faqEntries.map((entry) => (
+                <FaqAccordionItem
+                  key={entry.id}
+                  question={entry.question}
+                  answer={entry.answer}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Footer note */}
       {footerNote && (
         <footer className="w-full border-t border-oc-border px-4 py-4 text-center text-xs text-oc-faint">
@@ -144,5 +165,39 @@ function WidgetUnavailable() {
         </p>
       </div>
     </main>
+  );
+}
+
+function FaqAccordionItem({
+  question,
+  answer,
+}: {
+  question: string;
+  answer: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-oc-border bg-oc-panel/80">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-oc-panel/100"
+      >
+        <span className="text-sm font-semibold text-oc-text">{question}</span>
+        <ChevronDown
+          size={18}
+          className={`shrink-0 text-oc-muted transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      {isOpen && (
+        <div className="border-t border-oc-border bg-oc-bg/40 px-4 py-3">
+          <p className="text-sm leading-6 text-oc-muted whitespace-pre-wrap">
+            {answer}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

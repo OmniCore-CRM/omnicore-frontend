@@ -4,6 +4,7 @@ import type { Paginated } from "@/types/api";
 import type {
   Message,
   Attachment,
+  WidgetFaqEntry,
   WidgetInstallation,
 } from "@/types/models";
 
@@ -85,9 +86,54 @@ export async function bootstrapWidget(
   launcherLabel?: string | null;
   footerNote?: string | null;
   messageShortcuts?: string[];
+  faqEntries?: { id: string; question: string; answer: string; sortOrder: number }[];
 }> {
   const q = new URLSearchParams({ key: publicKey });
   return apiFetch(`/widget/bootstrap?${q.toString()}`);
+}
+
+export async function listWidgetFaqEntries(
+  token: string,
+  installationId: string,
+): Promise<WidgetFaqEntry[]> {
+  return apiFetch<WidgetFaqEntry[]>(
+    `/widget/installations/${installationId}/faq`,
+    { token },
+  );
+}
+
+export async function createWidgetFaqEntry(
+  token: string,
+  installationId: string,
+  body: { question: string; answer: string; sortOrder?: number },
+): Promise<WidgetFaqEntry> {
+  return apiFetch<WidgetFaqEntry>(
+    `/widget/installations/${installationId}/faq`,
+    { method: "POST", token, body },
+  );
+}
+
+export async function updateWidgetFaqEntry(
+  token: string,
+  installationId: string,
+  faqId: string,
+  body: { question?: string; answer?: string; sortOrder?: number },
+): Promise<WidgetFaqEntry> {
+  return apiFetch<WidgetFaqEntry>(
+    `/widget/installations/${installationId}/faq/${faqId}`,
+    { method: "PATCH", token, body },
+  );
+}
+
+export async function deleteWidgetFaqEntry(
+  token: string,
+  installationId: string,
+  faqId: string,
+): Promise<void> {
+  await apiFetch(
+    `/widget/installations/${installationId}/faq/${faqId}`,
+    { method: "DELETE", token },
+  );
 }
 
 export async function createWidgetConversation(body: {

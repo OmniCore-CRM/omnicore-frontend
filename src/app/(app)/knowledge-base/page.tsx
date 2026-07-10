@@ -264,7 +264,8 @@ export default function KnowledgeBasePage() {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="h-full overflow-y-auto p-3 pb-8 md:p-4 md:pb-8">
+      <div className="space-y-6">
       <Card className="p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -656,6 +657,7 @@ export default function KnowledgeBasePage() {
           </Card>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

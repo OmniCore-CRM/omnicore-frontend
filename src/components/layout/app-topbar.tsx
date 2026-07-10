@@ -49,6 +49,10 @@ const pageTitles: Record<string, { title: string; eyebrow: string }> = {
     title: "Analytics",
     eyebrow: "Operational reporting",
   },
+  "/knowledge-base": {
+    title: "Knowledge Base",
+    eyebrow: "Internal article and category management",
+  },
   "/settings": {
     title: "Settings",
     eyebrow: "Workspace configuration",

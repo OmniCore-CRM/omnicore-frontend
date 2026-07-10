@@ -313,6 +313,38 @@ export interface WidgetFaqEntry {
   updatedAt?: string;
 }
 
+export type WidgetArticleStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+export interface WidgetArticleCategory {
+  id: string;
+  companyId: string;
+  widgetInstallationId: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WidgetArticle {
+  id: string;
+  companyId: string;
+  widgetInstallationId: string;
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  categoryId?: string | null;
+  status: WidgetArticleStatus;
+  sortOrder: number;
+  publishedAt?: string | null;
+  createdById?: string | null;
+  category?: WidgetArticleCategory | null;
+  createdBy?: AuthUser | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface SavedReply {
   id: string;
   companyId: string;

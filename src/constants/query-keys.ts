@@ -26,6 +26,10 @@ export const queryKeys = {
   widgetInstallations: ["widget-installations"] as const,
   widgetFaqEntries: (installationId: string) =>
     ["widget-faq-entries", installationId] as const,
+  widgetArticleCategories: (installationId: string) =>
+    ["widget-article-categories", installationId] as const,
+  widgetArticles: (installationId: string) =>
+    ["widget-articles", installationId] as const,
   notifications: (params?: Record<string, string | undefined>) =>
     ["notifications", params ?? {}] as const,
   notificationUnreadCount: ["notification-unread-count"] as const,

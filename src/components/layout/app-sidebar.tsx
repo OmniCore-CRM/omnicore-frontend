@@ -10,6 +10,7 @@ import {
   ChevronRight,
   X,
   Inbox,
+  Library,
   MessageSquare,
   Settings,
   Ticket,
@@ -19,6 +20,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/stores/auth-store";
+import { Permissions, hasPermission } from "@/lib/permissions";
 
 const links = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
@@ -29,6 +32,7 @@ const links = [
   { href: "/tickets", label: "Tickets", icon: Ticket },
   { href: "/teams", label: "Teams", icon: UsersRound },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/knowledge-base", label: "Knowledge Base", icon: Library },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -40,9 +44,15 @@ export function AppSidebar({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const role = useAuthStore((s) => s.user?.role);
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const compact = collapsed && !mobile;
+  const visibleLinks = links.filter((link) =>
+    link.href === "/knowledge-base"
+      ? hasPermission(role, Permissions.manageKnowledgeBase)
+      : true,
+  );
 
   return (
     <aside
@@ -123,7 +133,7 @@ export function AppSidebar({
       )}
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2.5">
-        {links.map(({ href, label, icon: Icon }) => {
+        {visibleLinks.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href || (href !== "/inbox" && pathname.startsWith(href));
           return (

@@ -4,6 +4,8 @@ import type { Paginated } from "@/types/api";
 import type {
   Message,
   Attachment,
+  WidgetArticle,
+  WidgetArticleCategory,
   WidgetFaqEntry,
   WidgetInstallation,
 } from "@/types/models";
@@ -140,6 +142,120 @@ export async function deleteWidgetFaqEntry(
   await apiFetch(
     `/widget/installations/${installationId}/faq/${faqId}`,
     { method: "DELETE", token },
+  );
+}
+
+export async function listWidgetArticleCategories(
+  token: string,
+  installationId: string,
+): Promise<WidgetArticleCategory[]> {
+  return apiFetch<WidgetArticleCategory[]>(
+    `/widget/installations/${installationId}/categories`,
+    { token },
+  );
+}
+
+export async function createWidgetArticleCategory(
+  token: string,
+  installationId: string,
+  body: { name: string; slug: string; sortOrder?: number },
+): Promise<WidgetArticleCategory> {
+  return apiFetch<WidgetArticleCategory>(
+    `/widget/installations/${installationId}/categories`,
+    { method: "POST", token, body },
+  );
+}
+
+export async function updateWidgetArticleCategory(
+  token: string,
+  installationId: string,
+  categoryId: string,
+  body: { name?: string; slug?: string; sortOrder?: number },
+): Promise<WidgetArticleCategory> {
+  return apiFetch<WidgetArticleCategory>(
+    `/widget/installations/${installationId}/categories/${categoryId}`,
+    { method: "PATCH", token, body },
+  );
+}
+
+export async function deleteWidgetArticleCategory(
+  token: string,
+  installationId: string,
+  categoryId: string,
+): Promise<void> {
+  await apiFetch(`/widget/installations/${installationId}/categories/${categoryId}`, {
+    method: "DELETE",
+    token,
+  });
+}
+
+export async function listWidgetArticles(
+  token: string,
+  installationId: string,
+): Promise<WidgetArticle[]> {
+  return apiFetch<WidgetArticle[]>(
+    `/widget/installations/${installationId}/articles`,
+    { token },
+  );
+}
+
+export async function getWidgetArticle(
+  token: string,
+  installationId: string,
+  articleId: string,
+): Promise<WidgetArticle> {
+  return apiFetch<WidgetArticle>(
+    `/widget/installations/${installationId}/articles/${articleId}`,
+    { token },
+  );
+}
+
+export async function createWidgetArticle(
+  token: string,
+  installationId: string,
+  body: {
+    title: string;
+    slug: string;
+    summary: string;
+    content: string;
+    categoryId?: string | null;
+    sortOrder?: number;
+  },
+): Promise<WidgetArticle> {
+  return apiFetch<WidgetArticle>(
+    `/widget/installations/${installationId}/articles`,
+    { method: "POST", token, body },
+  );
+}
+
+export async function updateWidgetArticle(
+  token: string,
+  installationId: string,
+  articleId: string,
+  body: {
+    title?: string;
+    slug?: string;
+    summary?: string;
+    content?: string;
+    categoryId?: string | null;
+    sortOrder?: number;
+  },
+): Promise<WidgetArticle> {
+  return apiFetch<WidgetArticle>(
+    `/widget/installations/${installationId}/articles/${articleId}`,
+    { method: "PATCH", token, body },
+  );
+}
+
+export async function updateWidgetArticleStatus(
+  token: string,
+  installationId: string,
+  articleId: string,
+  status: "PUBLISHED" | "ARCHIVED",
+): Promise<WidgetArticle> {
+  return apiFetch<WidgetArticle>(
+    `/widget/installations/${installationId}/articles/${articleId}/status`,
+    { method: "PATCH", token, body: { status } },
   );
 }
 

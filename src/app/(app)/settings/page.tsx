@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useRef, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -3373,6 +3373,8 @@ function WidgetBrandingSettings({
   installation: WidgetInstallation;
 }) {
   const queryClient = useQueryClient();
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const heroInputRef = useRef<HTMLInputElement>(null);
   const [colorDraft, setColorDraft] = useState(installation.brandColor ?? "");
   const [colorError, setColorError] = useState("");
 
@@ -3475,27 +3477,25 @@ function WidgetBrandingSettings({
             </Button>
           </div>
         )}
-        <label className="block">
-          <span className="sr-only">Upload logo</span>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-            className="hidden"
-            disabled={busy}
-            onChange={(e) => handleFileInput(e, logoMutation.mutate)}
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={(e) => {
-              (e.currentTarget.previousElementSibling as HTMLInputElement | null)?.click();
-            }}
-          >
-            {logoMutation.isPending ? "Uploading…" : logoSrc ? "Replace logo" : "Upload logo"}
-          </Button>
-        </label>
+        <input
+          ref={logoInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+          aria-label="Upload logo"
+          className="hidden"
+          tabIndex={-1}
+          disabled={busy}
+          onChange={(e) => handleFileInput(e, logoMutation.mutate)}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          onClick={() => logoInputRef.current?.click()}
+        >
+          {logoMutation.isPending ? "Uploading…" : logoSrc ? "Replace logo" : "Upload logo"}
+        </Button>
         <p className="text-xs text-oc-faint">JPEG, PNG or WebP. Max 2 MB.</p>
       </div>
 
@@ -3521,27 +3521,25 @@ function WidgetBrandingSettings({
             </Button>
           </div>
         )}
-        <label className="block">
-          <span className="sr-only">Upload hero image</span>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-            className="hidden"
-            disabled={busy}
-            onChange={(e) => handleFileInput(e, heroMutation.mutate)}
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={(e) => {
-              (e.currentTarget.previousElementSibling as HTMLInputElement | null)?.click();
-            }}
-          >
-            {heroMutation.isPending ? "Uploading…" : heroSrc ? "Replace hero" : "Upload hero"}
-          </Button>
-        </label>
+        <input
+          ref={heroInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+          aria-label="Upload hero image"
+          className="hidden"
+          tabIndex={-1}
+          disabled={busy}
+          onChange={(e) => handleFileInput(e, heroMutation.mutate)}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          onClick={() => heroInputRef.current?.click()}
+        >
+          {heroMutation.isPending ? "Uploading…" : heroSrc ? "Replace hero" : "Upload hero"}
+        </Button>
         <p className="text-xs text-oc-faint">JPEG, PNG or WebP. Max 2 MB. Displayed as a wide banner.</p>
       </div>
 

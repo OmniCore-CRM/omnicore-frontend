@@ -17,6 +17,11 @@ import {
   createWidgetFaqEntry,
   updateWidgetFaqEntry,
   deleteWidgetFaqEntry,
+  uploadWidgetLogo,
+  removeWidgetLogo,
+  uploadWidgetHero,
+  removeWidgetHero,
+  brandingImageUrl,
 } from "@/api/widget";
 import {
   createSavedReply,
@@ -75,6 +80,7 @@ import type {
   UserLifecycleStatus,
   UserRole,
   WidgetFaqEntry,
+  WidgetInstallation,
 } from "@/types/models";
 import { Permissions, hasPermission, roleLabel } from "@/lib/permissions";
 
@@ -790,6 +796,14 @@ export default function SettingsPage() {
                 <WidgetFaqSettings
                   token={token ?? ""}
                   installationId={installation.id}
+                />
+              )}
+
+              {/* Branding management */}
+              {installation && (
+                <WidgetBrandingSettings
+                  token={token ?? ""}
+                  installation={installation}
                 />
               )}
             </Card>
@@ -3343,6 +3357,255 @@ function WidgetFaqSettings({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== Widget Branding Settings =====
+
+const HEX_REGEX = /^#[0-9A-Fa-f]{6}$/;
+
+function WidgetBrandingSettings({
+  token,
+  installation,
+}: {
+  token: string;
+  installation: WidgetInstallation;
+}) {
+  const queryClient = useQueryClient();
+  const [colorDraft, setColorDraft] = useState(installation.brandColor ?? "");
+  const [colorError, setColorError] = useState("");
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.widgetInstallations });
+
+  const logoMutation = useMutation({
+    mutationFn: (file: File) => uploadWidgetLogo(token, installation.id, file),
+    onSuccess: async () => { await invalidate(); toast.success("Logo uploaded"); },
+    onError: (err) => toast.error(getErrorMessage(err, "Logo upload failed")),
+  });
+
+  const removeLogoMutation = useMutation({
+    mutationFn: () => removeWidgetLogo(token, installation.id),
+    onSuccess: async () => { await invalidate(); toast.success("Logo removed"); },
+    onError: (err) => toast.error(getErrorMessage(err, "Could not remove logo")),
+  });
+
+  const heroMutation = useMutation({
+    mutationFn: (file: File) => uploadWidgetHero(token, installation.id, file),
+    onSuccess: async () => { await invalidate(); toast.success("Hero image uploaded"); },
+    onError: (err) => toast.error(getErrorMessage(err, "Hero upload failed")),
+  });
+
+  const removeHeroMutation = useMutation({
+    mutationFn: () => removeWidgetHero(token, installation.id),
+    onSuccess: async () => { await invalidate(); toast.success("Hero image removed"); },
+    onError: (err) => toast.error(getErrorMessage(err, "Could not remove hero")),
+  });
+
+  const colorMutation = useMutation({
+    mutationFn: (color: string | null) =>
+      updateWidgetInstallation(token, installation.id, { brandColor: color }),
+    onSuccess: async () => { await invalidate(); toast.success("Brand color saved"); },
+    onError: (err) => toast.error(getErrorMessage(err, "Could not save color")),
+  });
+
+  const busy =
+    logoMutation.isPending ||
+    removeLogoMutation.isPending ||
+    heroMutation.isPending ||
+    removeHeroMutation.isPending ||
+    colorMutation.isPending;
+
+  function handleFileInput(
+    e: React.ChangeEvent<HTMLInputElement>,
+    mutate: (f: File) => void,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    mutate(file);
+    e.target.value = "";
+  }
+
+  function handleColorSave() {
+    if (colorDraft === "") {
+      colorMutation.mutate(null);
+      return;
+    }
+    if (!HEX_REGEX.test(colorDraft)) {
+      setColorError("Must be a valid HEX color (#RRGGBB)");
+      return;
+    }
+    setColorError("");
+    colorMutation.mutate(colorDraft);
+  }
+
+  const logoSrc = brandingImageUrl(installation.logoUrl);
+  const heroSrc = brandingImageUrl(installation.heroImageUrl);
+  const previewColor = HEX_REGEX.test(colorDraft) ? colorDraft : installation.brandColor ?? null;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-oc-border bg-oc-bg/40 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-oc-text">Branding</h3>
+        <p className="mt-0.5 text-xs text-oc-muted">
+          Logo, hero image, and accent color shown on your public support page.
+        </p>
+      </div>
+
+      {/* Logo */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-oc-text">Company logo</p>
+        {logoSrc && (
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={logoSrc}
+              alt="Company logo"
+              className="h-12 max-w-[160px] rounded border border-oc-border object-contain"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="danger"
+              disabled={busy}
+              onClick={() => removeLogoMutation.mutate()}
+            >
+              {removeLogoMutation.isPending ? "Removing…" : "Remove"}
+            </Button>
+          </div>
+        )}
+        <label className="block">
+          <span className="sr-only">Upload logo</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => handleFileInput(e, logoMutation.mutate)}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={(e) => {
+              (e.currentTarget.previousElementSibling as HTMLInputElement | null)?.click();
+            }}
+          >
+            {logoMutation.isPending ? "Uploading…" : logoSrc ? "Replace logo" : "Upload logo"}
+          </Button>
+        </label>
+        <p className="text-xs text-oc-faint">JPEG, PNG or WebP. Max 2 MB.</p>
+      </div>
+
+      {/* Hero image */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-oc-text">Hero / banner image</p>
+        {heroSrc && (
+          <div className="space-y-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={heroSrc}
+              alt="Hero banner"
+              className="h-24 w-full rounded border border-oc-border object-cover"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="danger"
+              disabled={busy}
+              onClick={() => removeHeroMutation.mutate()}
+            >
+              {removeHeroMutation.isPending ? "Removing…" : "Remove hero"}
+            </Button>
+          </div>
+        )}
+        <label className="block">
+          <span className="sr-only">Upload hero image</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => handleFileInput(e, heroMutation.mutate)}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={(e) => {
+              (e.currentTarget.previousElementSibling as HTMLInputElement | null)?.click();
+            }}
+          >
+            {heroMutation.isPending ? "Uploading…" : heroSrc ? "Replace hero" : "Upload hero"}
+          </Button>
+        </label>
+        <p className="text-xs text-oc-faint">JPEG, PNG or WebP. Max 2 MB. Displayed as a wide banner.</p>
+      </div>
+
+      {/* Brand color */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-oc-text">Brand accent color</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <input
+              type="color"
+              value={previewColor ?? "#7C3AED"}
+              className="h-9 w-9 cursor-pointer rounded border border-oc-border bg-transparent p-0.5"
+              onChange={(e) => {
+                setColorDraft(e.target.value);
+                setColorError("");
+              }}
+            />
+          </div>
+          <Input
+            className="w-32"
+            placeholder="#7C3AED"
+            value={colorDraft}
+            maxLength={7}
+            onChange={(e) => {
+              setColorDraft(e.target.value);
+              setColorError("");
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy}
+            onClick={handleColorSave}
+          >
+            {colorMutation.isPending ? "Saving…" : "Save color"}
+          </Button>
+          {installation.brandColor && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => {
+                setColorDraft("");
+                colorMutation.mutate(null);
+              }}
+            >
+              Reset
+            </Button>
+          )}
+        </div>
+        {colorError && <p className="text-xs text-red-400">{colorError}</p>}
+        {/* Live preview swatch */}
+        {previewColor && (
+          <div className="flex items-center gap-2">
+            <div
+              className="h-5 w-5 rounded-full border border-oc-border"
+              style={{ backgroundColor: previewColor }}
+            />
+            <p className="text-xs text-oc-faint">Preview: {previewColor}</p>
+          </div>
+        )}
+        <p className="text-xs text-oc-faint">Used for buttons, links, and FAQ accents on the public page.</p>
+      </div>
     </div>
   );
 }

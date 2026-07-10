@@ -7,6 +7,7 @@ import type {
   WidgetFaqEntry,
   WidgetInstallation,
 } from "@/types/models";
+import { getApiBaseUrl } from "@/lib/env";
 
 type PublicWidgetCustomer = {
   id: string;
@@ -62,6 +63,9 @@ export async function updateWidgetInstallation(
     launcherLabel?: string;
     footerNote?: string;
     messageShortcuts?: string[];
+    brandColor?: string | null;
+    logoUrl?: string | null;
+    heroImageUrl?: string | null;
   },
 ): Promise<WidgetInstallation> {
   return apiFetch<WidgetInstallation>(
@@ -86,6 +90,9 @@ export async function bootstrapWidget(
   launcherLabel?: string | null;
   footerNote?: string | null;
   messageShortcuts?: string[];
+  logoUrl?: string | null;
+  heroImageUrl?: string | null;
+  brandColor?: string | null;
   faqEntries?: { id: string; question: string; answer: string; sortOrder: number }[];
 }> {
   const q = new URLSearchParams({ key: publicKey });
@@ -192,5 +199,76 @@ export async function sendWidgetMessage(
         content,
       },
     },
+  );
+}
+
+export function brandingImageUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return `${getApiBaseUrl()}${path.replace("/api/v1", "")}`;
+}
+
+export async function uploadWidgetLogo(
+  token: string,
+  installationId: string,
+  file: File,
+): Promise<WidgetInstallation> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(
+    `${getApiBaseUrl()}/widget/installations/${installationId}/logo`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { message?: string };
+    throw new Error(body.message ?? "Upload failed");
+  }
+  const body = await res.json() as { data: WidgetInstallation };
+  return body.data;
+}
+
+export async function removeWidgetLogo(
+  token: string,
+  installationId: string,
+): Promise<WidgetInstallation> {
+  return apiFetch<WidgetInstallation>(
+    `/widget/installations/${installationId}/logo`,
+    { method: "DELETE", token },
+  );
+}
+
+export async function uploadWidgetHero(
+  token: string,
+  installationId: string,
+  file: File,
+): Promise<WidgetInstallation> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(
+    `${getApiBaseUrl()}/widget/installations/${installationId}/hero`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { message?: string };
+    throw new Error(body.message ?? "Upload failed");
+  }
+  const body = await res.json() as { data: WidgetInstallation };
+  return body.data;
+}
+
+export async function removeWidgetHero(
+  token: string,
+  installationId: string,
+): Promise<WidgetInstallation> {
+  return apiFetch<WidgetInstallation>(
+    `/widget/installations/${installationId}/hero`,
+    { method: "DELETE", token },
   );
 }

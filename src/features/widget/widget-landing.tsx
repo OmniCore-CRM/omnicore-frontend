@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { bootstrapWidget } from "@/api/widget";
+import { bootstrapWidget, brandingImageUrl } from "@/api/widget";
 import { WidgetClient } from "./widget-client";
 import { ChevronDown } from "lucide-react";
 
@@ -76,18 +76,53 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
       ? config.messageShortcuts
       : [...WIDGET_DEFAULTS.messageShortcuts];
 
+  // Branding
+  const logoSrc = brandingImageUrl(config.logoUrl);
+  const heroSrc = brandingImageUrl(config.heroImageUrl);
+  const brandColor = config.brandColor ?? null;
+  // Inject brand color as CSS custom property for accent use
+  const brandStyle = brandColor
+    ? ({ "--brand-color": brandColor } as React.CSSProperties)
+    : undefined;
+
   return (
-    <main className="relative flex min-h-screen w-full flex-col bg-oc-bg text-oc-text">
+    <main
+      className="relative flex min-h-screen w-full flex-col bg-oc-bg text-oc-text"
+      style={brandStyle}
+    >
       {/* Background gradient */}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_10%,rgba(124,58,237,0.15),transparent_40%),radial-gradient(circle_at_80%_5%,rgba(52,211,153,0.10),transparent_35%)]" />
 
+      {/* Hero image */}
+      {heroSrc && (
+        <div className="h-48 w-full overflow-hidden sm:h-64">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={heroSrc}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
+
       {/* Centred landing content */}
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-4 py-16 text-center">
-        {companyName && (
-          <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-oc-accent-2">
+        {/* Logo or company name */}
+        {logoSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoSrc}
+            alt={companyName ?? "Company logo"}
+            className="mb-6 h-12 max-w-[160px] object-contain"
+          />
+        ) : companyName ? (
+          <p
+            className="mb-4 text-xs font-semibold uppercase tracking-widest"
+            style={brandColor ? { color: brandColor } : undefined}
+          >
             {companyName}
           </p>
-        )}
+        ) : null}
 
         <h1 className="text-3xl font-semibold tracking-tight text-oc-text sm:text-4xl">
           {welcomeTitle}
@@ -115,6 +150,7 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
                   key={entry.id}
                   question={entry.question}
                   answer={entry.answer}
+                  brandColor={brandColor}
                 />
               ))}
             </div>
@@ -171,9 +207,11 @@ function WidgetUnavailable() {
 function FaqAccordionItem({
   question,
   answer,
+  brandColor,
 }: {
   question: string;
   answer: string;
+  brandColor?: string | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -182,18 +220,18 @@ function FaqAccordionItem({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-oc-panel/100"
+        style={isOpen && brandColor ? { color: brandColor } : undefined}
       >
         <span className="text-sm font-semibold text-oc-text">{question}</span>
         <ChevronDown
           size={18}
-          className={`shrink-0 text-oc-muted transition-transform ${
-            isOpen ? "rotate-180" : ""
-          }`}
+          className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          style={brandColor ? { color: brandColor } : { color: "var(--oc-muted)" }}
         />
       </button>
       {isOpen && (
         <div className="border-t border-oc-border bg-oc-bg/40 px-4 py-3">
-          <p className="text-sm leading-6 text-oc-muted whitespace-pre-wrap">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-oc-muted">
             {answer}
           </p>
         </div>

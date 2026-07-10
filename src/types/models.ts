@@ -295,6 +295,9 @@ export interface WidgetInstallation {
   launcherLabel?: string | null;
   footerNote?: string | null;
   messageShortcuts?: string[];
+  logoUrl?: string | null;
+  heroImageUrl?: string | null;
+  brandColor?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

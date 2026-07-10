@@ -72,7 +72,7 @@ const securityHeaders = [
       "base-uri 'self'",
       "object-src 'none'",
       "frame-src 'self'",
-      "img-src 'self' data: blob: https:",
+      "img-src 'self' data: blob: https:" + (isDevelopment ? " http://localhost:* http://127.0.0.1:*" : ""),
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       `script-src ${scriptSources}`,

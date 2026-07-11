@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { bootstrapWidget, brandingImageUrl } from "@/api/widget";
+import {
+  bootstrapSupportPortal,
+  bootstrapWidget,
+  brandingImageUrl,
+} from "@/api/widget";
 import { WidgetClient } from "./widget-client";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
@@ -23,22 +27,30 @@ const WIDGET_DEFAULTS = {
 } as const;
 
 type WidgetLandingProps = {
-  publicKey: string;
+  publicKey?: string;
+  companySlug?: string;
 };
 
-export function WidgetLanding({ publicKey }: WidgetLandingProps) {
+export function WidgetLanding({ publicKey = "", companySlug = "" }: WidgetLandingProps) {
+  const slug = companySlug.trim().toLowerCase();
+  const key = publicKey.trim();
+  const isSlugMode = Boolean(slug);
+  const identity = isSlugMode ? slug : key;
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable">(
-    publicKey ? "loading" : "unavailable",
+    identity ? "loading" : "unavailable",
   );
   const [config, setConfig] = useState<BootstrapConfig | null>(null);
 
   useEffect(() => {
-    // Initial state already set to "unavailable" when publicKey is empty.
-    if (!publicKey) return;
+    if (!identity) return;
 
     let cancelled = false;
 
-    bootstrapWidget(publicKey)
+    const fetcher = isSlugMode
+      ? bootstrapSupportPortal(slug)
+      : bootstrapWidget(key);
+
+    fetcher
       .then((cfg) => {
         if (!cancelled) {
           setConfig(cfg);
@@ -52,7 +64,7 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
     return () => {
       cancelled = true;
     };
-  }, [publicKey]);
+  }, [identity, isSlugMode, key, slug]);
 
   if (status === "loading") {
     return <WidgetLoadingShell />;
@@ -76,6 +88,11 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
     config.messageShortcuts && config.messageShortcuts.length > 0
       ? config.messageShortcuts
       : [...WIDGET_DEFAULTS.messageShortcuts];
+  const resolvedPublicKey = config.publicKey?.trim() || key;
+
+  if (!resolvedPublicKey) {
+    return <WidgetUnavailable />;
+  }
 
   // Branding
   const logoSrc = brandingImageUrl(config.logoUrl);
@@ -137,7 +154,11 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
           Click the chat button in the bottom-right corner to get started.
         </p>
         <Link
-          href={`/widget/help?key=${encodeURIComponent(publicKey)}`}
+          href={
+            isSlugMode
+              ? `/support/${encodeURIComponent(slug)}/help`
+              : `/widget/help?key=${encodeURIComponent(resolvedPublicKey)}`
+          }
           className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-oc-border bg-oc-panel/70 px-4 py-2 text-xs font-semibold text-oc-text transition hover:bg-oc-panel"
         >
           Browse Help Centre
@@ -174,7 +195,7 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
 
       {/* Live chat widget — pre-bootstrapped so no second HTTP call */}
       <WidgetClient
-        publicKey={publicKey}
+        publicKey={resolvedPublicKey}
         preBootstrapped
         widgetConfig={{
           companyDisplayName: companyName,

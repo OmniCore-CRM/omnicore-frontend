@@ -164,6 +164,28 @@ export async function bootstrapWidget(
   return apiFetch(`/widget/bootstrap?${q.toString()}`);
 }
 
+export async function bootstrapSupportPortal(
+  companySlug: string,
+): Promise<{
+  publicKey: string;
+  enabled: boolean;
+  companyDisplayName?: string | null;
+  welcomeTitle?: string | null;
+  welcomeSubtitle?: string | null;
+  chatGreeting?: string | null;
+  launcherLabel?: string | null;
+  footerNote?: string | null;
+  messageShortcuts?: string[];
+  logoUrl?: string | null;
+  heroImageUrl?: string | null;
+  brandColor?: string | null;
+  faqEntries?: { id: string; question: string; answer: string; sortOrder: number }[];
+}> {
+  return apiFetch(
+    `/widget/support/${encodeURIComponent(companySlug)}/bootstrap`,
+  );
+}
+
 export async function getPublicHelpCenter(
   publicKey: string,
   options?: {
@@ -181,6 +203,26 @@ export async function getPublicHelpCenter(
   return apiFetch<PublicHelpCenterResponse>(`/widget/help-center?${q.toString()}`);
 }
 
+export async function getSupportHelpCenter(
+  companySlug: string,
+  options?: {
+    category?: string;
+    search?: string;
+  },
+): Promise<PublicHelpCenterResponse> {
+  const q = new URLSearchParams();
+  const category = options?.category?.trim();
+  const search = options?.search?.trim();
+
+  if (category) q.set("category", category);
+  if (search) q.set("search", search);
+
+  const suffix = q.toString() ? `?${q.toString()}` : "";
+  return apiFetch<PublicHelpCenterResponse>(
+    `/widget/support/${encodeURIComponent(companySlug)}/help-center${suffix}`,
+  );
+}
+
 export async function getPublicHelpCenterArticle(
   publicKey: string,
   slug: string,
@@ -188,6 +230,15 @@ export async function getPublicHelpCenterArticle(
   const q = new URLSearchParams({ key: publicKey });
   return apiFetch<PublicHelpCenterArticleResponse>(
     `/widget/help-center/articles/${encodeURIComponent(slug)}?${q.toString()}`,
+  );
+}
+
+export async function getSupportHelpCenterArticle(
+  companySlug: string,
+  articleSlug: string,
+): Promise<PublicHelpCenterArticleResponse> {
+  return apiFetch<PublicHelpCenterArticleResponse>(
+    `/widget/support/${encodeURIComponent(companySlug)}/help-center/articles/${encodeURIComponent(articleSlug)}`,
   );
 }
 
@@ -202,6 +253,21 @@ export async function askPublicHelpCenterQuestion(
       question,
     },
   });
+}
+
+export async function askSupportHelpCenterQuestion(
+  companySlug: string,
+  question: string,
+): Promise<PublicHelpCenterAnswerResponse> {
+  return apiFetch<PublicHelpCenterAnswerResponse>(
+    `/widget/support/${encodeURIComponent(companySlug)}/help-center/ask`,
+    {
+      method: "POST",
+      body: {
+        question,
+      },
+    }
+  );
 }
 
 export async function listWidgetFaqEntries(

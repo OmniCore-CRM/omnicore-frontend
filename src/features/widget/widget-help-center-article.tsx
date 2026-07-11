@@ -7,31 +7,43 @@ import {
 } from "@/api/errors";
 import {
   getPublicHelpCenterArticle,
+  getSupportHelpCenterArticle,
   type PublicHelpCenterArticleResponse,
 } from "@/api/widget";
 import { WidgetClient } from "./widget-client";
 
 type WidgetHelpCenterArticleProps = {
-  publicKey: string;
+  publicKey?: string;
+  companySlug?: string;
   slug: string;
 };
 
 type ViewState = "loading" | "ready" | "invalid";
 
 export function WidgetHelpCenterArticle({
-  publicKey,
+  publicKey = "",
+  companySlug = "",
   slug,
 }: WidgetHelpCenterArticleProps) {
-  const [state, setState] = useState<ViewState>(publicKey ? "loading" : "invalid");
+  const key = publicKey.trim();
+  const supportSlug = companySlug.trim().toLowerCase();
+  const isSlugMode = Boolean(supportSlug);
+  const [state, setState] = useState<ViewState>(
+    isSlugMode || key ? "loading" : "invalid"
+  );
   const [data, setData] = useState<PublicHelpCenterArticleResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!publicKey) return;
+    if (!isSlugMode && !key) return;
 
     let cancelled = false;
 
-    getPublicHelpCenterArticle(publicKey, slug)
+    const fetcher = isSlugMode
+      ? getSupportHelpCenterArticle(supportSlug, slug)
+      : getPublicHelpCenterArticle(key, slug);
+
+    fetcher
       .then((response) => {
         if (cancelled) return;
         setData(response);
@@ -48,9 +60,14 @@ export function WidgetHelpCenterArticle({
     return () => {
       cancelled = true;
     };
-  }, [publicKey, slug]);
+  }, [isSlugMode, key, slug, supportSlug]);
 
-  if (!publicKey) {
+  const resolvedPublicKey = data?.publicKey?.trim() || key;
+  const backHref = isSlugMode
+    ? `/support/${encodeURIComponent(supportSlug)}/help`
+    : `/widget/help?key=${encodeURIComponent(resolvedPublicKey || key)}`;
+
+  if (!isSlugMode && !key) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-oc-bg px-4 text-oc-text">
         <div className="mx-auto w-full max-w-md rounded-2xl border border-oc-border bg-oc-panel/70 p-6 text-center shadow-oc-card">
@@ -78,7 +95,7 @@ export function WidgetHelpCenterArticle({
     );
   }
 
-  if (state === "invalid" || !data) {
+  if (state === "invalid" || !data || !resolvedPublicKey) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-oc-bg px-4 text-oc-text">
         <div className="mx-auto w-full max-w-md rounded-2xl border border-oc-border bg-oc-panel/70 p-6 text-center shadow-oc-card">
@@ -88,7 +105,7 @@ export function WidgetHelpCenterArticle({
           </p>
           {errorMessage ? <p className="mt-3 text-xs text-oc-faint">{errorMessage}</p> : null}
           <Link
-            href={`/widget/help?key=${encodeURIComponent(publicKey)}`}
+            href={backHref}
             className="mt-5 inline-flex min-h-10 items-center justify-center rounded-xl border border-oc-border bg-oc-bg-mid px-4 py-2 text-xs font-semibold text-oc-text transition hover:bg-oc-panel"
           >
             Back to Help Centre
@@ -104,7 +121,7 @@ export function WidgetHelpCenterArticle({
     <main className="min-h-screen overflow-x-hidden bg-oc-bg text-oc-text">
       <div className="mx-auto w-full max-w-3xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-28">
         <Link
-          href={`/widget/help?key=${encodeURIComponent(publicKey)}`}
+          href={backHref}
           className="inline-flex items-center text-xs font-medium text-oc-muted transition hover:text-oc-text"
         >
           Back to Help Centre
@@ -138,7 +155,7 @@ export function WidgetHelpCenterArticle({
       </div>
 
       <WidgetClient
-        publicKey={publicKey}
+        publicKey={resolvedPublicKey}
         preBootstrapped
         defaultOpen={false}
         widgetConfig={{

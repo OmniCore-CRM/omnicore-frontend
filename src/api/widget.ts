@@ -31,6 +31,55 @@ type PublicWidgetConversation = {
   updatedAt?: string;
 };
 
+export type PublicWidgetArticleCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+};
+
+export type PublicWidgetArticle = {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  publishedAt?: string | null;
+  updatedAt?: string;
+  category?: PublicWidgetArticleCategory | null;
+};
+
+export type PublicHelpCenterResponse = {
+  publicKey: string;
+  companyDisplayName?: string | null;
+  welcomeTitle?: string | null;
+  welcomeSubtitle?: string | null;
+  chatGreeting?: string | null;
+  launcherLabel?: string | null;
+  footerNote?: string | null;
+  messageShortcuts?: string[];
+  logoUrl?: string | null;
+  heroImageUrl?: string | null;
+  brandColor?: string | null;
+  filters: {
+    category?: string | null;
+    search?: string;
+  };
+  categories: PublicWidgetArticleCategory[];
+  articles: PublicWidgetArticle[];
+};
+
+export type PublicHelpCenterArticleResponse = {
+  publicKey: string;
+  companyDisplayName?: string | null;
+  chatGreeting?: string | null;
+  launcherLabel?: string | null;
+  messageShortcuts?: string[];
+  logoUrl?: string | null;
+  brandColor?: string | null;
+  article: PublicWidgetArticle;
+};
+
 export async function listWidgetInstallations(
   token: string,
 ): Promise<WidgetInstallation[]> {
@@ -99,6 +148,33 @@ export async function bootstrapWidget(
 }> {
   const q = new URLSearchParams({ key: publicKey });
   return apiFetch(`/widget/bootstrap?${q.toString()}`);
+}
+
+export async function getPublicHelpCenter(
+  publicKey: string,
+  options?: {
+    category?: string;
+    search?: string;
+  },
+): Promise<PublicHelpCenterResponse> {
+  const q = new URLSearchParams({ key: publicKey });
+  const category = options?.category?.trim();
+  const search = options?.search?.trim();
+
+  if (category) q.set("category", category);
+  if (search) q.set("search", search);
+
+  return apiFetch<PublicHelpCenterResponse>(`/widget/help-center?${q.toString()}`);
+}
+
+export async function getPublicHelpCenterArticle(
+  publicKey: string,
+  slug: string,
+): Promise<PublicHelpCenterArticleResponse> {
+  const q = new URLSearchParams({ key: publicKey });
+  return apiFetch<PublicHelpCenterArticleResponse>(
+    `/widget/help-center/articles/${encodeURIComponent(slug)}?${q.toString()}`,
+  );
 }
 
 export async function listWidgetFaqEntries(

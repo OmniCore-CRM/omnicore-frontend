@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { bootstrapWidget, brandingImageUrl } from "@/api/widget";
 import { WidgetClient } from "./widget-client";
 import { ChevronDown } from "lucide-react";
+import Link from "next/link";
 
 type BootstrapConfig = Awaited<ReturnType<typeof bootstrapWidget>>;
 
@@ -135,6 +136,12 @@ export function WidgetLanding({ publicKey }: WidgetLandingProps) {
         <p className="mt-10 rounded-full border border-oc-border bg-oc-panel/60 px-4 py-2 text-xs text-oc-faint">
           Click the chat button in the bottom-right corner to get started.
         </p>
+        <Link
+          href={`/widget/help?key=${encodeURIComponent(publicKey)}`}
+          className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-oc-border bg-oc-panel/70 px-4 py-2 text-xs font-semibold text-oc-text transition hover:bg-oc-panel"
+        >
+          Browse Help Centre
+        </Link>
       </div>
 
       {/* FAQ Accordion */}

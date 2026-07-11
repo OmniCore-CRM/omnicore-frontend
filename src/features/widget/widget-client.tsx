@@ -42,6 +42,8 @@ type WidgetClientProps = {
   preBootstrapped?: boolean;
   /** Branding/copy overrides from the bootstrap config. */
   widgetConfig?: WidgetConfig;
+  /** Controls whether the chat panel starts expanded or collapsed. */
+  defaultOpen?: boolean;
 };
 
 const socketEvents = {
@@ -86,8 +88,9 @@ export function WidgetClient({
   publicKey,
   preBootstrapped = false,
   widgetConfig,
+  defaultOpen = true,
 }: WidgetClientProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   // When pre-bootstrapped by the parent, start already bootstrapped so the
   // chat UI is immediately available without a second network call.
   const [bootstrapped, setBootstrapped] = useState(() => preBootstrapped);

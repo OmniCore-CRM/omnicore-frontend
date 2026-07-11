@@ -7,6 +7,7 @@ import {
   brandingImageUrl,
 } from "@/api/widget";
 import { WidgetClient } from "./widget-client";
+import { SupportPortalNav } from "./support-portal-nav";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 
@@ -125,6 +126,12 @@ export function WidgetLanding({ publicKey = "", companySlug = "" }: WidgetLandin
 
       {/* Centred landing content */}
       <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-4 py-16 text-center">
+        {isSlugMode ? (
+          <div className="mb-8">
+            <SupportPortalNav companySlug={slug} current="home" />
+          </div>
+        ) : null}
+
         {/* Logo or company name */}
         {logoSrc ? (
           // eslint-disable-next-line @next/next/no-img-element

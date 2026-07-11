@@ -15,6 +15,7 @@ import {
   type PublicHelpCenterResponse,
 } from "@/api/widget";
 import { WidgetClient } from "./widget-client";
+import { SupportPortalNav } from "./support-portal-nav";
 
 type WidgetHelpCenterProps = {
   publicKey?: string;
@@ -186,6 +187,12 @@ export function WidgetHelpCenter({
   return (
     <main className="min-h-screen overflow-x-hidden bg-oc-bg text-oc-text" style={brandColor ? ({ "--brand-color": brandColor } as React.CSSProperties) : undefined}>
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        {isSlugMode ? (
+          <div className="mb-4">
+            <SupportPortalNav companySlug={slug} current="help" />
+          </div>
+        ) : null}
+
         <Link
           href={baseLandingHref}
           className="inline-flex items-center text-xs font-medium text-oc-muted transition hover:text-oc-text"

@@ -11,6 +11,7 @@ import {
   type PublicHelpCenterArticleResponse,
 } from "@/api/widget";
 import { WidgetClient } from "./widget-client";
+import { SupportPortalNav } from "./support-portal-nav";
 
 type WidgetHelpCenterArticleProps = {
   publicKey?: string;
@@ -120,6 +121,12 @@ export function WidgetHelpCenterArticle({
   return (
     <main className="min-h-screen overflow-x-hidden bg-oc-bg text-oc-text">
       <div className="mx-auto w-full max-w-3xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-28">
+        {isSlugMode ? (
+          <div className="mb-4">
+            <SupportPortalNav companySlug={supportSlug} current="help" />
+          </div>
+        ) : null}
+
         <Link
           href={backHref}
           className="inline-flex items-center text-xs font-medium text-oc-muted transition hover:text-oc-text"

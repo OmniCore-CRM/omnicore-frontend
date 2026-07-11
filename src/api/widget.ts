@@ -94,6 +94,14 @@ export type PublicHelpCenterArticleResponse = {
   article: PublicWidgetArticle;
 };
 
+export type PublicSupportContactResponse = {
+  publicKey: string;
+  customer: PublicWidgetCustomer;
+  conversation: PublicWidgetConversation;
+  message: Message;
+  messages: Message[];
+};
+
 export async function listWidgetInstallations(
   token: string,
 ): Promise<WidgetInstallation[]> {
@@ -267,6 +275,26 @@ export async function askSupportHelpCenterQuestion(
         question,
       },
     }
+  );
+}
+
+export async function submitSupportContact(
+  companySlug: string,
+  body: {
+    name: string;
+    email: string;
+    phone?: string;
+    subject: string;
+    message: string;
+    website?: string;
+  },
+): Promise<PublicSupportContactResponse> {
+  return apiFetch<PublicSupportContactResponse>(
+    `/widget/support/${encodeURIComponent(companySlug)}/contact`,
+    {
+      method: "POST",
+      body,
+    },
   );
 }
 

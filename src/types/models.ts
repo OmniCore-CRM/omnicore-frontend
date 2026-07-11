@@ -16,6 +16,8 @@ export type ConversationChannel =
 export interface Company {
   id: string;
   name: string;
+  companySlug?: string | null;
+  supportPortalEnabled?: boolean;
 }
 
 // Backend-aligned RBAC roles.

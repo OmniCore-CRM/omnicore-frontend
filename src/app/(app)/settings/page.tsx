@@ -64,6 +64,10 @@ import {
   listEmailAccounts,
   updateEmailAccount,
 } from "@/api/email";
+import {
+  getCompanyPortalSettings,
+  updateCompanyPortalSettings,
+} from "@/api/companies";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import type {
@@ -247,12 +251,36 @@ const formatInvitationState = (value?: string) =>
     ? value.toLowerCase().replace(/(^|_)(\w)/g, (_, p1, p2) => `${p1 ? " " : ""}${p2.toUpperCase()}`)
     : "None";
 
+const companySlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const reservedCompanySlugs = new Set([
+  "admin",
+  "api",
+  "app",
+  "auth",
+  "billing",
+  "dashboard",
+  "help",
+  "home",
+  "knowledge-base",
+  "login",
+  "logout",
+  "register",
+  "settings",
+  "signup",
+  "support",
+  "widget",
+]);
+
 export default function SettingsPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Profile");
   const user = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
   const token = useAuthStore((s) => s.accessToken);
   const queryClient = useQueryClient();
+  const [companySlugDraft, setCompanySlugDraft] = useState<string | null>(null);
+  const [portalEnabledDraft, setPortalEnabledDraft] = useState<boolean | null>(
+    null,
+  );
   const widgetQuery = useQuery({
     queryKey: queryKeys.widgetInstallations,
     queryFn: () => listWidgetInstallations(token ?? ""),
@@ -260,6 +288,12 @@ export default function SettingsPage() {
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,
+  });
+  const companyPortalSettingsQuery = useQuery({
+    queryKey: queryKeys.companyPortalSettings,
+    queryFn: () => getCompanyPortalSettings(token ?? ""),
+    enabled: Boolean(token) && tab === "Company" && hasPermission(user?.role, Permissions.manageSettings),
+    staleTime: 60_000,
   });
   const installation = widgetQuery.data?.[0] ?? null;
   const [domainDraft, setDomainDraft] = useState<string | null>(null);
@@ -344,6 +378,54 @@ export default function SettingsPage() {
       toast.error(getErrorMessage(err, "Could not update widget"));
     },
   });
+
+  const updateCompanyPortalSettingsMutation = useMutation({
+    mutationFn: (body: {
+      companySlug?: string | null;
+      supportPortalEnabled?: boolean;
+    }) => updateCompanyPortalSettings(token ?? "", body),
+    onSuccess: async (next) => {
+      setCompanySlugDraft(next.companySlug ?? "");
+      setPortalEnabledDraft(next.supportPortalEnabled);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.companyPortalSettings,
+      });
+      toast.success("Support portal settings updated");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not update support portal settings"));
+    },
+  });
+
+  const effectiveCompanySlugDraft =
+    companySlugDraft ?? (companyPortalSettingsQuery.data?.companySlug ?? "");
+  const effectivePortalEnabledDraft =
+    portalEnabledDraft ??
+    (companyPortalSettingsQuery.data?.supportPortalEnabled ?? false);
+
+  const normalizedDraftSlug = effectiveCompanySlugDraft.trim().toLowerCase();
+  const isSlugEmpty = normalizedDraftSlug.length === 0;
+  const isSlugFormatValid = isSlugEmpty || companySlugPattern.test(normalizedDraftSlug);
+  const isSlugReserved = !isSlugEmpty && reservedCompanySlugs.has(normalizedDraftSlug);
+  const slugValidationMessage = !isSlugFormatValid
+    ? "Use lowercase letters, numbers, and single hyphens only."
+    : isSlugReserved
+      ? "This slug is reserved and cannot be used."
+      : null;
+  const currentSlug = companyPortalSettingsQuery.data?.companySlug ?? "";
+  const hasPortalDraftChanges =
+    normalizedDraftSlug !== currentSlug ||
+    effectivePortalEnabledDraft !==
+      (companyPortalSettingsQuery.data?.supportPortalEnabled ?? false);
+  const canSavePortalSettings =
+    hasPermission(user?.role, Permissions.manageSettings) &&
+    isSlugFormatValid &&
+    !isSlugReserved &&
+    hasPortalDraftChanges &&
+    !updateCompanyPortalSettingsMutation.isPending;
+  const supportPortalPreviewUrl = normalizedDraftSlug
+    ? `${typeof window === "undefined" ? "" : window.location.origin}/support/${normalizedDraftSlug}`
+    : "Set a slug to preview the future portal URL";
 
   const copyToClipboard = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
@@ -482,6 +564,83 @@ export default function SettingsPage() {
                 Company-level branding, billing, domains, and workspace controls
                 will connect to future backend company management APIs.
               </p>
+
+              <div className="space-y-4 rounded-lg border border-oc-border bg-oc-bg/40 p-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-oc-text">Public support portal</h3>
+                  <p className="mt-0.5 text-xs text-oc-muted">
+                    Configure the Phase 5 public support portal identity. Widget key routes stay unchanged.
+                  </p>
+                </div>
+
+                {!hasPermission(user?.role, Permissions.manageSettings) ? (
+                  <p className="text-sm text-oc-muted">
+                    You do not have permission to edit portal settings.
+                  </p>
+                ) : companyPortalSettingsQuery.isLoading ? (
+                  <p className="text-sm text-oc-muted">Loading portal settings...</p>
+                ) : (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs text-oc-faint">Company slug</span>
+                        <Input
+                          className="mt-1"
+                          placeholder="acme-support"
+                          maxLength={63}
+                          value={effectiveCompanySlugDraft}
+                          onChange={(event) =>
+                            setCompanySlugDraft(event.target.value.toLowerCase())
+                          }
+                        />
+                        <p className="mt-1 text-xs text-oc-faint">
+                          Lowercase letters, numbers, and hyphens only.
+                        </p>
+                        {slugValidationMessage ? (
+                          <p className="mt-1 text-xs text-red-300">{slugValidationMessage}</p>
+                        ) : null}
+                      </label>
+
+                      <label className="block">
+                        <span className="text-xs text-oc-faint">Portal status</span>
+                        <select
+                          value={effectivePortalEnabledDraft ? "enabled" : "disabled"}
+                          onChange={(event) =>
+                            setPortalEnabledDraft(event.target.value === "enabled")
+                          }
+                          className={settingsSelectClass}
+                        >
+                          <option value="disabled">Disabled</option>
+                          <option value="enabled">Enabled</option>
+                        </select>
+                        <p className="mt-1 text-xs text-oc-faint">
+                          Toggle availability of the future slug-based support portal.
+                        </p>
+                      </label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-oc-faint">Future portal preview URL</label>
+                      <Input value={supportPortalPreviewUrl} readOnly />
+                    </div>
+
+                    <Button
+                      type="button"
+                      disabled={!canSavePortalSettings}
+                      onClick={() =>
+                        updateCompanyPortalSettingsMutation.mutate({
+                          companySlug: isSlugEmpty ? null : normalizedDraftSlug,
+                          supportPortalEnabled: effectivePortalEnabledDraft,
+                        })
+                      }
+                    >
+                      {updateCompanyPortalSettingsMutation.isPending
+                        ? "Saving..."
+                        : "Save portal settings"}
+                    </Button>
+                  </>
+                )}
+              </div>
             </Card>
           )}
 

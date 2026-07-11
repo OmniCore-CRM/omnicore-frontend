@@ -35,4 +35,5 @@ export const queryKeys = {
   notificationUnreadCount: ["notification-unread-count"] as const,
   assignmentCenter: (params?: Record<string, string | undefined>) =>
     ["assignment-center", params ?? {}] as const,
+  companyPortalSettings: ["company-portal-settings"] as const,
 };

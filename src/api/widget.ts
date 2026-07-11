@@ -45,8 +45,22 @@ export type PublicWidgetArticle = {
   summary: string;
   content: string;
   publishedAt?: string | null;
-  updatedAt?: string;
   category?: PublicWidgetArticleCategory | null;
+};
+
+export type PublicHelpCenterAnswerResponse = {
+  publicKey: string;
+  question: string;
+  state: "ANSWERED" | "NO_MATCH" | "EMPTY";
+  message: string;
+  answer: {
+    article: PublicWidgetArticle;
+    excerpt: string;
+  } | null;
+  suggestions: Array<{
+    article: PublicWidgetArticle;
+    excerpt: string;
+  }>;
 };
 
 export type PublicHelpCenterResponse = {
@@ -175,6 +189,19 @@ export async function getPublicHelpCenterArticle(
   return apiFetch<PublicHelpCenterArticleResponse>(
     `/widget/help-center/articles/${encodeURIComponent(slug)}?${q.toString()}`,
   );
+}
+
+export async function askPublicHelpCenterQuestion(
+  publicKey: string,
+  question: string,
+): Promise<PublicHelpCenterAnswerResponse> {
+  return apiFetch<PublicHelpCenterAnswerResponse>("/widget/help-center/ask", {
+    method: "POST",
+    body: {
+      publicKey,
+      question,
+    },
+  });
 }
 
 export async function listWidgetFaqEntries(

@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import {
   getErrorMessage,
 } from "@/api/errors";
 import {
   brandingImageUrl,
+  askPublicHelpCenterQuestion,
   getPublicHelpCenter,
+  type PublicHelpCenterAnswerResponse,
   type PublicHelpCenterResponse,
 } from "@/api/widget";
 import { WidgetClient } from "./widget-client";
@@ -19,6 +21,7 @@ type WidgetHelpCenterProps = {
 };
 
 type ViewState = "loading" | "ready" | "invalid";
+type AskState = "idle" | "loading" | "ready" | "error";
 
 export function WidgetHelpCenter({
   publicKey,
@@ -30,8 +33,33 @@ export function WidgetHelpCenter({
   const [data, setData] = useState<PublicHelpCenterResponse | null>(null);
   const [state, setState] = useState<ViewState>(publicKey ? "loading" : "invalid");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [questionInput, setQuestionInput] = useState("");
+  const [askState, setAskState] = useState<AskState>("idle");
+  const [askError, setAskError] = useState<string | null>(null);
+  const [askResult, setAskResult] =
+    useState<PublicHelpCenterAnswerResponse | null>(null);
 
   const search = useDebouncedValue(searchInput, 250);
+
+  const askQuestion = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const question = questionInput.trim();
+    if (!question) return;
+
+    setAskState("loading");
+    setAskError(null);
+
+    try {
+      const response = await askPublicHelpCenterQuestion(publicKey, question);
+      setAskResult(response);
+      setAskState("ready");
+    } catch (error: unknown) {
+      setAskResult(null);
+      setAskError(getErrorMessage(error, "Could not find an answer right now"));
+      setAskState("error");
+    }
+  };
 
   useEffect(() => {
     if (!publicKey) return;
@@ -188,6 +216,99 @@ export function WidgetHelpCenter({
                 ))}
               </select>
             </label>
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-2xl border border-oc-border bg-oc-panel/50 p-4 sm:p-5">
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-base font-semibold sm:text-lg">Ask a Question</h2>
+              <p className="mt-1 text-sm text-oc-muted">
+                Ask in plain language and we will find the closest published answer.
+              </p>
+            </div>
+
+            <form onSubmit={askQuestion} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium uppercase tracking-[0.16em] text-oc-muted">Your question</span>
+                <input
+                  type="text"
+                  value={questionInput}
+                  onChange={(event) => setQuestionInput(event.target.value)}
+                  placeholder="e.g. How do I reset my password?"
+                  className="h-11 w-full rounded-xl border border-oc-border bg-oc-bg-mid px-3 text-sm text-oc-text outline-none transition focus:border-oc-accent"
+                  maxLength={300}
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={askState === "loading" || !questionInput.trim()}
+                className="h-11 rounded-xl border border-oc-border bg-oc-bg-mid px-4 text-sm font-semibold text-oc-text transition hover:bg-oc-panel disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {askState === "loading" ? "Finding answer..." : "Find Answer"}
+              </button>
+            </form>
+
+            {askState === "error" && askError ? (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                {askError}
+              </div>
+            ) : null}
+
+            {askState === "ready" && askResult ? (
+              <div className="space-y-3">
+                {askResult.state === "ANSWERED" && askResult.answer ? (
+                  <div className="rounded-xl border border-oc-border bg-oc-panel/60 p-4">
+                    <p className="text-xs font-medium uppercase tracking-[0.16em] text-oc-muted">Best match</p>
+                    <h3 className="mt-1 text-base font-semibold break-words">
+                      {askResult.answer.article.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-7 text-oc-muted break-words">
+                      {askResult.answer.excerpt}
+                    </p>
+                    <Link
+                      href={`/widget/help/${encodeURIComponent(askResult.answer.article.slug)}?key=${encodeURIComponent(publicKey)}`}
+                      className="mt-3 inline-flex items-center text-sm font-medium text-oc-accent-2 transition hover:text-oc-text"
+                    >
+                      Read full answer
+                    </Link>
+
+                    {askResult.suggestions.length > 0 ? (
+                      <div className="mt-4 space-y-2 border-t border-oc-border pt-3">
+                        <p className="text-xs font-medium uppercase tracking-[0.16em] text-oc-muted">Related answers</p>
+                        <div className="space-y-2">
+                          {askResult.suggestions.map((item) => (
+                            <Link
+                              key={item.article.id}
+                              href={`/widget/help/${encodeURIComponent(item.article.slug)}?key=${encodeURIComponent(publicKey)}`}
+                              className="block rounded-lg border border-oc-border bg-oc-bg-mid p-3 transition hover:bg-oc-panel"
+                            >
+                              <p className="text-sm font-medium break-words">{item.article.title}</p>
+                              <p className="mt-1 text-xs leading-6 text-oc-muted break-words">{item.excerpt}</p>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {askResult.state === "NO_MATCH" ? (
+                  <div className="rounded-xl border border-oc-border bg-oc-panel/60 p-4 text-sm text-oc-muted">
+                    <p className="font-medium text-oc-text">No direct answer found</p>
+                    <p className="mt-1">Try a shorter question, different keywords, or browse the articles below.</p>
+                  </div>
+                ) : null}
+
+                {askResult.state === "EMPTY" ? (
+                  <div className="rounded-xl border border-oc-border bg-oc-panel/60 p-4 text-sm text-oc-muted">
+                    <p className="font-medium text-oc-text">No published answers yet</p>
+                    <p className="mt-1">This Help Centre is currently empty. Please check back later for updates.</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </section>
 

@@ -112,7 +112,12 @@ export function apiBrandingImageUrl(path: string | null | undefined) {
   }
 
   const apiBase = getApiBaseUrl();
-  return `${apiBase}${path.replace("/api/v1", "")}`;
+  const apiOrigin = new URL(apiBase).origin;
+  if (path.startsWith("/api/")) {
+    return `${apiOrigin}${path}`;
+  }
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${apiBase}${normalized}`;
 }
 
 async function fetchApiData<T>(path: string): Promise<T | null> {

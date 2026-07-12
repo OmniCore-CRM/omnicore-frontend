@@ -517,7 +517,19 @@ export async function sendWidgetMessage(
 
 export function brandingImageUrl(path: string | null | undefined): string | null {
   if (!path) return null;
-  return `${getApiBaseUrl()}${path.replace("/api/v1", "")}`;
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+
+  const apiBase = getApiBaseUrl();
+  const apiOrigin = new URL(apiBase).origin;
+
+  if (path.startsWith("/api/")) {
+    return `${apiOrigin}${path}`;
+  }
+
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${apiBase}${normalized}`;
 }
 
 export async function uploadWidgetLogo(

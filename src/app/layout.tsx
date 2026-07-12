@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
+import { getWebBaseUrl } from "@/lib/seo";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,6 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getWebBaseUrl()),
   title: "OmniCore",
   description: "Enterprise omnichannel CRM and customer engagement",
 };

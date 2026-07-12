@@ -112,64 +112,75 @@ export function WidgetLanding({ publicKey = "", companySlug = "" }: WidgetLandin
       {/* Background gradient */}
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_20%_10%,rgba(124,58,237,0.15),transparent_40%),radial-gradient(circle_at_80%_5%,rgba(52,211,153,0.10),transparent_35%)]" />
 
-      {/* Hero image */}
-      {heroSrc && (
-        <div className="h-48 w-full overflow-hidden sm:h-64">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={heroSrc}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        </div>
-      )}
-
-      {/* Centred landing content */}
-      <div className="mx-auto flex w-full max-w-xl flex-1 flex-col items-center justify-center px-4 py-16 text-center">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8">
         {isSlugMode ? (
-          <div className="mb-8">
+          <div className="mb-4">
             <SupportPortalNav companySlug={slug} current="home" />
           </div>
         ) : null}
 
-        {/* Logo or company name */}
-        {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={logoSrc}
-            alt={companyName ?? "Company logo"}
-            className="mb-6 h-12 max-w-[160px] object-contain"
-          />
-        ) : companyName ? (
-          <p
-            className="mb-4 text-xs font-semibold uppercase tracking-widest"
-            style={brandColor ? { color: brandColor } : undefined}
-          >
-            {companyName}
-          </p>
-        ) : null}
+        <section className="overflow-hidden rounded-2xl border border-oc-border bg-oc-panel/70 shadow-oc-card">
+          {heroSrc ? (
+            <div className="px-4 pt-4 sm:px-6 sm:pt-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={heroSrc}
+                alt=""
+                className="h-36 w-full rounded-xl object-cover sm:h-52"
+              />
+            </div>
+          ) : null}
 
-        <h1 className="text-3xl font-semibold tracking-tight text-oc-text sm:text-4xl">
-          {welcomeTitle}
-        </h1>
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-wrap items-center gap-3">
+              {logoSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoSrc}
+                  alt={companyName ?? "Company logo"}
+                  className="h-10 max-w-[180px] object-contain sm:h-12"
+                />
+              ) : null}
+              <div className="min-w-0">
+                {companyName ? (
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-oc-muted">
+                    {companyName}
+                  </p>
+                ) : null}
+                <p
+                  className="text-xs font-medium uppercase tracking-[0.16em] text-oc-faint"
+                  style={brandColor ? { color: brandColor } : undefined}
+                >
+                  Support Portal
+                </p>
+              </div>
+            </div>
 
-        <p className="mt-4 max-w-sm text-sm leading-7 text-oc-muted sm:text-base">
-          {welcomeSubtitle}
-        </p>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight text-oc-text sm:text-3xl">
+              {welcomeTitle}
+            </h1>
 
-        <p className="mt-10 rounded-full border border-oc-border bg-oc-panel/60 px-4 py-2 text-xs text-oc-faint">
-          Click the chat button in the bottom-right corner to get started.
-        </p>
-        <Link
-          href={
-            isSlugMode
-              ? `/support/${encodeURIComponent(slug)}/help`
-              : `/widget/help?key=${encodeURIComponent(resolvedPublicKey)}`
-          }
-          className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full border border-oc-border bg-oc-panel/70 px-4 py-2 text-xs font-semibold text-oc-text transition hover:bg-oc-panel"
-        >
-          Browse Help Centre
-        </Link>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-oc-muted sm:text-base">
+              {welcomeSubtitle}
+            </p>
+
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <p className="rounded-full border border-oc-border bg-oc-panel/60 px-4 py-2 text-xs text-oc-faint">
+                Click the chat button in the bottom-right corner to get started.
+              </p>
+              <Link
+                href={
+                  isSlugMode
+                    ? `/support/${encodeURIComponent(slug)}/help`
+                    : `/widget/help?key=${encodeURIComponent(resolvedPublicKey)}`
+                }
+                className="inline-flex min-h-9 items-center justify-center rounded-full border border-oc-border bg-oc-panel/70 px-4 py-2 text-xs font-semibold text-oc-text transition hover:bg-oc-panel"
+              >
+                Browse Help Centre
+              </Link>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* FAQ Accordion */}

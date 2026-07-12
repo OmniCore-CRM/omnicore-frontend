@@ -206,7 +206,7 @@ export function WidgetHelpCenter({
             <img
               src={heroSrc}
               alt=""
-              className="h-36 w-full object-cover sm:h-44"
+              className="h-36 w-full object-cover sm:h-52"
             />
           ) : null}
           <div className="p-5 sm:p-6">
@@ -216,14 +216,19 @@ export function WidgetHelpCenter({
                 <img
                   src={logoSrc}
                   alt={data.companyDisplayName?.trim() || "Company logo"}
-                  className="h-10 max-w-[160px] object-contain"
+                  className="h-10 max-w-[180px] object-contain sm:h-12"
                 />
               ) : null}
-              {data.companyDisplayName?.trim() ? (
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-oc-muted">
-                  {data.companyDisplayName}
+              <div className="min-w-0">
+                {data.companyDisplayName?.trim() ? (
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-oc-muted">
+                    {data.companyDisplayName}
+                  </p>
+                ) : null}
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-oc-faint">
+                  Help Centre
                 </p>
-              ) : null}
+              </div>
             </div>
 
             <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">

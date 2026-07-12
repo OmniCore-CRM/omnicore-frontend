@@ -150,7 +150,7 @@ export function WidgetContactSupport({ companySlug = "" }: { companySlug?: strin
         <section className="mt-4 overflow-hidden rounded-2xl border border-oc-border bg-oc-panel/70 shadow-oc-card">
           {heroSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={heroSrc} alt="" className="h-36 w-full object-cover sm:h-44" />
+            <img src={heroSrc} alt="" className="h-36 w-full object-cover sm:h-52" />
           ) : null}
           <div className="p-5 sm:p-6">
             <div className="flex flex-wrap items-center gap-3">
@@ -159,14 +159,19 @@ export function WidgetContactSupport({ companySlug = "" }: { companySlug?: strin
                 <img
                   src={logoSrc}
                   alt={companyName ?? "Company logo"}
-                  className="h-10 max-w-[160px] object-contain"
+                  className="h-10 max-w-[180px] object-contain sm:h-12"
                 />
               ) : null}
-              {companyName ? (
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-oc-muted">
-                  {companyName}
+              <div className="min-w-0">
+                {companyName ? (
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-oc-muted">
+                    {companyName}
+                  </p>
+                ) : null}
+                <p className="text-xs font-medium uppercase tracking-[0.16em] text-oc-faint">
+                  Contact Support
                 </p>
-              ) : null}
+              </div>
             </div>
 
             <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">

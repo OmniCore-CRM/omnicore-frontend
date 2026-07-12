@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useMemo, useState } from "react";
+import { FormEvent, useEffect, useRef, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -3687,6 +3687,21 @@ function WidgetFaqSettings({
 // ===== Widget Branding Settings =====
 
 const HEX_REGEX = /^#[0-9A-Fa-f]{6}$/;
+const BRANDING_MAX_BYTES = 2 * 1024 * 1024;
+const BRANDING_ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+const BRANDING_ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp"];
+
+type PendingBrandingUpload = {
+  file: File;
+  previewUrl: string;
+};
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  return `${(kb / 1024).toFixed(2)} MB`;
+}
 
 function WidgetBrandingSettings({
   token,
@@ -3698,6 +3713,8 @@ function WidgetBrandingSettings({
   const queryClient = useQueryClient();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
+  const [pendingLogo, setPendingLogo] = useState<PendingBrandingUpload | null>(null);
+  const [pendingHero, setPendingHero] = useState<PendingBrandingUpload | null>(null);
   const [colorDraft, setColorDraft] = useState(installation.brandColor ?? "");
   const [colorError, setColorError] = useState("");
 
@@ -3706,7 +3723,11 @@ function WidgetBrandingSettings({
 
   const logoMutation = useMutation({
     mutationFn: (file: File) => uploadWidgetLogo(token, installation.id, file),
-    onSuccess: async () => { await invalidate(); toast.success("Logo uploaded"); },
+    onSuccess: async () => {
+      clearPending("logo");
+      await invalidate();
+      toast.success("Logo uploaded");
+    },
     onError: (err) => toast.error(getErrorMessage(err, "Logo upload failed")),
   });
 
@@ -3718,7 +3739,11 @@ function WidgetBrandingSettings({
 
   const heroMutation = useMutation({
     mutationFn: (file: File) => uploadWidgetHero(token, installation.id, file),
-    onSuccess: async () => { await invalidate(); toast.success("Hero image uploaded"); },
+    onSuccess: async () => {
+      clearPending("hero");
+      await invalidate();
+      toast.success("Hero image uploaded");
+    },
     onError: (err) => toast.error(getErrorMessage(err, "Hero upload failed")),
   });
 
@@ -3742,13 +3767,71 @@ function WidgetBrandingSettings({
     removeHeroMutation.isPending ||
     colorMutation.isPending;
 
-  function handleFileInput(
-    e: React.ChangeEvent<HTMLInputElement>,
-    mutate: (f: File) => void,
-  ) {
+  useEffect(
+    () => () => {
+      if (pendingLogo?.previewUrl) URL.revokeObjectURL(pendingLogo.previewUrl);
+      if (pendingHero?.previewUrl) URL.revokeObjectURL(pendingHero.previewUrl);
+    },
+    [pendingHero, pendingLogo],
+  );
+
+  function validateBrandingFile(file: File) {
+    if (file.size > BRANDING_MAX_BYTES) {
+      return "Image must be 2 MB or smaller";
+    }
+
+    const lowerName = file.name.toLowerCase();
+    const hasAllowedExt = BRANDING_ALLOWED_EXT.some((ext) => lowerName.endsWith(ext));
+    const hasAllowedMime = BRANDING_ALLOWED_MIME.has(file.type);
+    if (!hasAllowedMime && !hasAllowedExt) {
+      return "Only JPEG, PNG, or WebP images are allowed";
+    }
+
+    return null;
+  }
+
+  function clearPending(type: "logo" | "hero") {
+    if (type === "logo") {
+      setPendingLogo((current) => {
+        if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
+        return null;
+      });
+      return;
+    }
+
+    setPendingHero((current) => {
+      if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
+      return null;
+    });
+  }
+
+  function handleFileInput(e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "hero") {
     const file = e.target.files?.[0];
-    if (!file) return;
-    mutate(file);
+    if (!file) {
+      e.target.value = "";
+      return;
+    }
+
+    const validationError = validateBrandingFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      e.target.value = "";
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    if (type === "logo") {
+      setPendingLogo((current) => {
+        if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
+        return { file, previewUrl };
+      });
+    } else {
+      setPendingHero((current) => {
+        if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
+        return { file, previewUrl };
+      });
+    }
+
     e.target.value = "";
   }
 
@@ -3782,7 +3865,7 @@ function WidgetBrandingSettings({
       <div className="space-y-2">
         <p className="text-xs font-semibold text-oc-text">Company logo</p>
         {logoSrc && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={logoSrc}
@@ -3792,12 +3875,60 @@ function WidgetBrandingSettings({
             <Button
               type="button"
               size="sm"
-              variant="danger"
+              variant="outline"
+              className="h-9 rounded-md border-red-800/60 px-3 text-[13px] text-red-300 hover:bg-red-900/30"
               disabled={busy}
               onClick={() => removeLogoMutation.mutate()}
             >
               {removeLogoMutation.isPending ? "Removing…" : "Remove"}
             </Button>
+          </div>
+        )}
+        {pendingLogo && (
+          <div className="space-y-2 rounded-lg border border-oc-border bg-oc-panel/40 p-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={pendingLogo.previewUrl}
+                alt="Pending logo preview"
+                className="h-11 max-w-[160px] rounded border border-oc-border object-contain"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-oc-text">{pendingLogo.file.name}</p>
+                <p className="text-xs text-oc-faint">{formatFileSize(pendingLogo.file.size)}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 rounded-md px-3 text-[13px]"
+                disabled={busy}
+                onClick={() => logoMutation.mutate(pendingLogo.file)}
+              >
+                {logoMutation.isPending ? "Uploading…" : "Upload logo"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-9 rounded-md px-3 text-[13px]"
+                disabled={busy}
+                onClick={() => logoInputRef.current?.click()}
+              >
+                Choose another
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-9 rounded-md px-3 text-[13px]"
+                disabled={busy}
+                onClick={() => clearPending("logo")}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
         <input
@@ -3808,16 +3939,17 @@ function WidgetBrandingSettings({
           className="hidden"
           tabIndex={-1}
           disabled={busy}
-          onChange={(e) => handleFileInput(e, logoMutation.mutate)}
+          onChange={(e) => handleFileInput(e, "logo")}
         />
         <Button
           type="button"
           size="sm"
           variant="secondary"
+          className="h-9 rounded-md px-3 text-[13px]"
           disabled={busy}
           onClick={() => logoInputRef.current?.click()}
         >
-          {logoMutation.isPending ? "Uploading…" : logoSrc ? "Replace logo" : "Upload logo"}
+          {logoSrc ? "Replace logo" : "Choose logo"}
         </Button>
         <p className="text-xs text-oc-faint">JPEG, PNG or WebP. Max 2 MB.</p>
       </div>
@@ -3831,17 +3963,63 @@ function WidgetBrandingSettings({
             <img
               src={heroSrc}
               alt="Hero banner"
-              className="h-24 w-full rounded border border-oc-border object-cover"
+              className="h-24 w-full rounded border border-oc-border object-cover sm:h-28"
             />
             <Button
               type="button"
               size="sm"
-              variant="danger"
+              variant="outline"
+              className="h-9 rounded-md border-red-800/60 px-3 text-[13px] text-red-300 hover:bg-red-900/30"
               disabled={busy}
               onClick={() => removeHeroMutation.mutate()}
             >
               {removeHeroMutation.isPending ? "Removing…" : "Remove hero"}
             </Button>
+          </div>
+        )}
+        {pendingHero && (
+          <div className="space-y-2 rounded-lg border border-oc-border bg-oc-panel/40 p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={pendingHero.previewUrl}
+              alt="Pending hero preview"
+              className="h-24 w-full rounded border border-oc-border object-cover sm:h-28"
+            />
+            <div>
+              <p className="truncate text-xs font-medium text-oc-text">{pendingHero.file.name}</p>
+              <p className="text-xs text-oc-faint">{formatFileSize(pendingHero.file.size)}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 rounded-md px-3 text-[13px]"
+                disabled={busy}
+                onClick={() => heroMutation.mutate(pendingHero.file)}
+              >
+                {heroMutation.isPending ? "Uploading…" : "Upload hero"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-9 rounded-md px-3 text-[13px]"
+                disabled={busy}
+                onClick={() => heroInputRef.current?.click()}
+              >
+                Choose another
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-9 rounded-md px-3 text-[13px]"
+                disabled={busy}
+                onClick={() => clearPending("hero")}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
         <input
@@ -3852,16 +4030,17 @@ function WidgetBrandingSettings({
           className="hidden"
           tabIndex={-1}
           disabled={busy}
-          onChange={(e) => handleFileInput(e, heroMutation.mutate)}
+          onChange={(e) => handleFileInput(e, "hero")}
         />
         <Button
           type="button"
           size="sm"
           variant="secondary"
+          className="h-9 rounded-md px-3 text-[13px]"
           disabled={busy}
           onClick={() => heroInputRef.current?.click()}
         >
-          {heroMutation.isPending ? "Uploading…" : heroSrc ? "Replace hero" : "Upload hero"}
+          {heroSrc ? "Replace hero" : "Choose hero"}
         </Button>
         <p className="text-xs text-oc-faint">JPEG, PNG or WebP. Max 2 MB. Displayed as a wide banner.</p>
       </div>
@@ -3894,6 +4073,7 @@ function WidgetBrandingSettings({
           <Button
             type="button"
             size="sm"
+            className="h-9 rounded-md px-3 text-[13px]"
             disabled={busy}
             onClick={handleColorSave}
           >
@@ -3904,6 +4084,7 @@ function WidgetBrandingSettings({
               type="button"
               size="sm"
               variant="secondary"
+              className="h-9 rounded-md px-3 text-[13px]"
               disabled={busy}
               onClick={() => {
                 setColorDraft("");

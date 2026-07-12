@@ -64,21 +64,35 @@ const scriptSources = ["'self'", "'unsafe-inline'", ...(isDevelopment ? ["'unsaf
 
 // Do not set X-Frame-Options or frame-ancestors globally: /widget is
 // intentionally embeddable by customer websites and mobile WebViews.
-const securityHeaders = [
+const cspBaseDirectives = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-src 'self'",
+  "img-src 'self' data: blob: https:" + (isDevelopment ? " http://localhost:* http://127.0.0.1:*" : ""),
+  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  `script-src ${scriptSources}`,
+  `connect-src ${connectSources.join(" ")}`,
+  "form-action 'self'",
+];
+
+const appSecurityHeaders = [
   {
     key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "frame-src 'self'",
-      "img-src 'self' data: blob: https:" + (isDevelopment ? " http://localhost:* http://127.0.0.1:*" : ""),
-      "font-src 'self' data:",
-      "style-src 'self' 'unsafe-inline'",
-      `script-src ${scriptSources}`,
-      `connect-src ${connectSources.join(" ")}`,
-      "form-action 'self'",
-    ].join("; "),
+    value: [...cspBaseDirectives, "frame-ancestors 'none'"].join("; "),
+  },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "X-DNS-Prefetch-Control", value: "on" },
+];
+
+const widgetSecurityHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value: cspBaseDirectives.join("; "),
   },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -90,8 +104,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/:path*",
-        headers: securityHeaders,
+        source: "/widget",
+        headers: widgetSecurityHeaders,
+      },
+      {
+        source: "/widget/:path*",
+        headers: widgetSecurityHeaders,
+      },
+      {
+        source: "/((?!widget).*)",
+        headers: appSecurityHeaders,
       },
     ];
   },

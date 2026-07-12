@@ -65,7 +65,25 @@ export async function handleResponse<T>(res: Response): Promise<T> {
 
 /** Surfaces API and normalization errors in UI (not only ApiError). */
 export function getErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof ApiError) return err.message;
+  if (err instanceof ApiError) {
+    if (err.status === 401) {
+      return "Your session has expired. Please sign in again.";
+    }
+
+    if (err.status >= 500) {
+      return "Unexpected server error. Please try again.";
+    }
+
+    return err.message;
+  }
+
+  if (err instanceof TypeError) {
+    const message = err.message.toLowerCase();
+    if (message.includes("fetch") || message.includes("network")) {
+      return "Network error. Check your connection and try again.";
+    }
+  }
+
   if (err instanceof Error && err.message) return err.message;
   return fallback;
 }

@@ -5,6 +5,12 @@ export type CompanyPortalSettings = {
   companyName: string;
   companySlug: string | null;
   supportPortalEnabled: boolean;
+  customSupportDomain: string | null;
+  verificationStatus: "NOT_CONFIGURED" | "PENDING" | "VERIFIED" | "FAILED";
+  verificationToken: string | null;
+  verifiedAt: string | null;
+  sslStatus: "NOT_CONFIGURED" | "PENDING" | "READY" | "FAILED";
+  domainStatus: "NOT_CONFIGURED" | "PENDING" | "READY" | "FAILED";
   createdAt: string;
   updatedAt: string;
 };
@@ -22,6 +28,7 @@ export async function updateCompanyPortalSettings(
   body: {
     companySlug?: string | null;
     supportPortalEnabled?: boolean;
+    customSupportDomain?: string | null;
   },
 ): Promise<CompanyPortalSettings> {
   return apiFetch<CompanyPortalSettings>("/companies/portal-settings", {

@@ -252,6 +252,8 @@ const formatInvitationState = (value?: string) =>
     : "None";
 
 const companySlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const customDomainPattern =
+  /^(?!-)[a-z0-9-]{1,63}(?<!-)(?:\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/;
 const reservedCompanySlugs = new Set([
   "admin",
   "api",
@@ -271,6 +273,28 @@ const reservedCompanySlugs = new Set([
   "widget",
 ]);
 
+const domainStatusBadgeClass: Record<string, string> = {
+  NOT_CONFIGURED: "bg-oc-panel text-oc-muted border-oc-border",
+  PENDING: "bg-amber-500/10 text-amber-200 border-amber-500/40",
+  READY: "bg-sky-500/10 text-sky-200 border-sky-500/40",
+  VERIFIED: "bg-emerald-500/10 text-emerald-200 border-emerald-500/40",
+  FAILED: "bg-red-500/10 text-red-200 border-red-500/40",
+};
+
+const formatDomainStatus = (value?: string | null) => {
+  if (!value || value === "NOT_CONFIGURED") return "Not configured";
+  return value
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/(^|\s)([a-z])/g, (_, p1, p2) => `${p1}${p2.toUpperCase()}`);
+};
+
+const deriveDnsHost = (domain: string) => {
+  const labels = domain.split(".");
+  if (labels.length <= 2) return "@";
+  return labels.slice(0, -2).join(".");
+};
+
 export default function SettingsPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Profile");
   const user = useAuthStore((s) => s.user);
@@ -281,6 +305,7 @@ export default function SettingsPage() {
   const [portalEnabledDraft, setPortalEnabledDraft] = useState<boolean | null>(
     null,
   );
+  const [customDomainDraft, setCustomDomainDraft] = useState<string | null>(null);
   const widgetQuery = useQuery({
     queryKey: queryKeys.widgetInstallations,
     queryFn: () => listWidgetInstallations(token ?? ""),
@@ -383,10 +408,12 @@ export default function SettingsPage() {
     mutationFn: (body: {
       companySlug?: string | null;
       supportPortalEnabled?: boolean;
+      customSupportDomain?: string | null;
     }) => updateCompanyPortalSettings(token ?? "", body),
     onSuccess: async (next) => {
       setCompanySlugDraft(next.companySlug ?? "");
       setPortalEnabledDraft(next.supportPortalEnabled);
+      setCustomDomainDraft(next.customSupportDomain ?? "");
       await queryClient.invalidateQueries({
         queryKey: queryKeys.companyPortalSettings,
       });
@@ -402,6 +429,8 @@ export default function SettingsPage() {
   const effectivePortalEnabledDraft =
     portalEnabledDraft ??
     (companyPortalSettingsQuery.data?.supportPortalEnabled ?? false);
+  const effectiveCustomDomainDraft =
+    customDomainDraft ?? (companyPortalSettingsQuery.data?.customSupportDomain ?? "");
 
   const normalizedDraftSlug = effectiveCompanySlugDraft.trim().toLowerCase();
   const isSlugEmpty = normalizedDraftSlug.length === 0;
@@ -426,6 +455,41 @@ export default function SettingsPage() {
   const supportPortalPreviewUrl = normalizedDraftSlug
     ? `${typeof window === "undefined" ? "" : window.location.origin}/support/${normalizedDraftSlug}`
     : "Set a slug to preview the future portal URL";
+  const normalizedCustomDomainDraft = effectiveCustomDomainDraft.trim().toLowerCase();
+  const isCustomDomainEmpty = normalizedCustomDomainDraft.length === 0;
+  const hasProtocol = normalizedCustomDomainDraft.includes("://");
+  const hasPath = normalizedCustomDomainDraft.includes("/");
+  const hasUppercase = effectiveCustomDomainDraft !== effectiveCustomDomainDraft.toLowerCase();
+  const isLocalHostLike =
+    normalizedCustomDomainDraft === "localhost" ||
+    normalizedCustomDomainDraft.endsWith(".localhost") ||
+    /^\d+\.\d+\.\d+\.\d+$/.test(normalizedCustomDomainDraft);
+  const isCustomDomainFormatValid =
+    isCustomDomainEmpty ||
+    (!hasProtocol &&
+      !hasPath &&
+      !hasUppercase &&
+      !isLocalHostLike &&
+      customDomainPattern.test(normalizedCustomDomainDraft));
+  const customDomainValidationMessage = hasProtocol
+    ? "Custom domain must not include a protocol."
+    : hasPath
+      ? "Custom domain must not include a path."
+      : hasUppercase
+        ? "Custom domain must be lowercase."
+        : isLocalHostLike
+          ? "Custom domain must be a public hostname."
+          : !isCustomDomainFormatValid
+            ? "Custom domain must be a valid hostname."
+            : null;
+  const hasCustomDomainDraftChanges =
+    normalizedCustomDomainDraft !==
+    ((companyPortalSettingsQuery.data?.customSupportDomain ?? "").trim().toLowerCase());
+  const canSaveDomainSettings =
+    hasPermission(user?.role, Permissions.manageSettings) &&
+    isCustomDomainFormatValid &&
+    hasCustomDomainDraftChanges &&
+    !updateCompanyPortalSettingsMutation.isPending;
 
   const copyToClipboard = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
@@ -638,6 +702,106 @@ export default function SettingsPage() {
                         ? "Saving..."
                         : "Save portal settings"}
                     </Button>
+
+                    <div className="space-y-4 rounded-lg border border-oc-border bg-oc-bg/40 p-4">
+                      <div>
+                        <h3 className="text-sm font-semibold text-oc-text">Custom domain readiness</h3>
+                        <p className="mt-0.5 text-xs text-oc-muted">
+                          Prepare support.{company?.name?.toLowerCase().replace(/\s+/g, "") || "yourbrand"}.com without DNS automation.
+                        </p>
+                      </div>
+
+                      <label className="block">
+                        <span className="text-xs text-oc-faint">Custom support domain</span>
+                        <Input
+                          className="mt-1"
+                          placeholder="support.acme.com"
+                          maxLength={255}
+                          value={effectiveCustomDomainDraft}
+                          onChange={(event) =>
+                            setCustomDomainDraft(event.target.value)
+                          }
+                        />
+                        <p className="mt-1 text-xs text-oc-faint">
+                          Hostname only. No protocol, path, localhost, or IP addresses.
+                        </p>
+                        {customDomainValidationMessage ? (
+                          <p className="mt-1 text-xs text-red-300">{customDomainValidationMessage}</p>
+                        ) : null}
+                      </label>
+
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-lg border border-oc-border bg-oc-panel/40 p-3">
+                          <p className="text-xs text-oc-faint">Domain status</p>
+                          <span
+                            className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${domainStatusBadgeClass[companyPortalSettingsQuery.data?.domainStatus ?? "NOT_CONFIGURED"] ?? domainStatusBadgeClass.NOT_CONFIGURED}`}
+                          >
+                            {formatDomainStatus(companyPortalSettingsQuery.data?.domainStatus)}
+                          </span>
+                        </div>
+                        <div className="rounded-lg border border-oc-border bg-oc-panel/40 p-3">
+                          <p className="text-xs text-oc-faint">Verification</p>
+                          <span
+                            className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${domainStatusBadgeClass[companyPortalSettingsQuery.data?.verificationStatus ?? "NOT_CONFIGURED"] ?? domainStatusBadgeClass.NOT_CONFIGURED}`}
+                          >
+                            {formatDomainStatus(companyPortalSettingsQuery.data?.verificationStatus)}
+                          </span>
+                        </div>
+                        <div className="rounded-lg border border-oc-border bg-oc-panel/40 p-3">
+                          <p className="text-xs text-oc-faint">SSL</p>
+                          <span
+                            className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${domainStatusBadgeClass[companyPortalSettingsQuery.data?.sslStatus ?? "NOT_CONFIGURED"] ?? domainStatusBadgeClass.NOT_CONFIGURED}`}
+                          >
+                            {formatDomainStatus(companyPortalSettingsQuery.data?.sslStatus)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-oc-border bg-oc-panel/40 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-oc-faint">
+                          DNS instructions (manual)
+                        </p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                          <div>
+                            <p className="text-xs text-oc-faint">Type</p>
+                            <p className="text-sm font-medium text-oc-text">CNAME</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-oc-faint">Host</p>
+                            <p className="text-sm font-medium text-oc-text">
+                              {isCustomDomainEmpty
+                                ? "support"
+                                : deriveDnsHost(normalizedCustomDomainDraft)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-oc-faint">Points to</p>
+                            <p className="text-sm font-medium text-oc-text">
+                              support.omnicorecrm.com
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-3 text-xs text-oc-faint">
+                          Verification and SSL issuance will be automated in a later phase.
+                        </p>
+                      </div>
+
+                      <Button
+                        type="button"
+                        disabled={!canSaveDomainSettings}
+                        onClick={() =>
+                          updateCompanyPortalSettingsMutation.mutate({
+                            customSupportDomain: isCustomDomainEmpty
+                              ? null
+                              : normalizedCustomDomainDraft,
+                          })
+                        }
+                      >
+                        {updateCompanyPortalSettingsMutation.isPending
+                          ? "Saving..."
+                          : "Save custom domain"}
+                      </Button>
+                    </div>
                   </>
                 )}
               </div>

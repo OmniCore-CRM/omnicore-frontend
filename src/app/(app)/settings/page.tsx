@@ -66,8 +66,10 @@ import {
 } from "@/api/email";
 import {
   getCompanyPortalSettings,
+  updateCompanyProfileName,
   updateCompanyPortalSettings,
 } from "@/api/companies";
+import { updateCurrentProfileApi } from "@/api/auth";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import type {
@@ -300,7 +302,20 @@ export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
   const token = useAuthStore((s) => s.accessToken);
+  const setSession = useAuthStore((s) => s.setSession);
   const queryClient = useQueryClient();
+  const profileNameInputRef = useRef<HTMLInputElement>(null);
+  const companyNameInputRef = useRef<HTMLInputElement>(null);
+  const currentDisplayName = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileDisplayNameDraft, setProfileDisplayNameDraft] = useState(currentDisplayName);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [isEditingCompany, setIsEditingCompany] = useState(false);
+  const [companyNameDraft, setCompanyNameDraft] = useState(company?.name ?? "");
+  const [companyNameError, setCompanyNameError] = useState<string | null>(null);
   const [companySlugDraft, setCompanySlugDraft] = useState<string | null>(null);
   const [portalEnabledDraft, setPortalEnabledDraft] = useState<boolean | null>(
     null,
@@ -362,6 +377,66 @@ export default function SettingsPage() {
       return { ...base, [field]: value };
     });
   }
+
+  const profileMutation = useMutation({
+    mutationFn: async () => {
+      if (!token) throw new Error("Not authenticated");
+      return updateCurrentProfileApi(token, {
+        displayName: profileDisplayNameDraft.trim(),
+      });
+    },
+    onSuccess: (next) => {
+      if (!token) return;
+      setSession({ accessToken: token, user: next.user, company: next.company });
+      setIsEditingProfile(false);
+      setProfileError(null);
+      toast.success("Profile updated");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not update profile"));
+    },
+  });
+
+  const canEditCompanyName = user?.role === "OWNER" || user?.role === "ADMIN";
+
+  const companyProfileMutation = useMutation({
+    mutationFn: async () => {
+      if (!token) throw new Error("Not authenticated");
+      return updateCompanyProfileName(token, {
+        name: companyNameDraft.trim(),
+      });
+    },
+    onSuccess: (next) => {
+      if (token && user && company) {
+        setSession({
+          accessToken: token,
+          user,
+          company: {
+            ...company,
+            ...next.company,
+          },
+        });
+      }
+      setIsEditingCompany(false);
+      setCompanyNameError(null);
+      toast.success("Company updated");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not update company"));
+    },
+  });
+
+  useEffect(() => {
+    if (!isEditingProfile) return;
+    profileNameInputRef.current?.focus();
+    profileNameInputRef.current?.select();
+  }, [isEditingProfile]);
+
+  useEffect(() => {
+    if (!isEditingCompany) return;
+    companyNameInputRef.current?.focus();
+    companyNameInputRef.current?.select();
+  }, [isEditingCompany]);
 
   const createWidgetMutation = useMutation({
     mutationFn: () =>
@@ -570,27 +645,71 @@ export default function SettingsPage() {
                 <div>
                   <label className="text-xs text-oc-faint">Display name</label>
                   <Input
+                    ref={profileNameInputRef}
                     className="mt-1"
-                    defaultValue={
-                      [user?.firstName, user?.lastName]
-                        .filter(Boolean)
-                        .join(" ")
-                    }
-                    disabled
+                    value={isEditingProfile ? profileDisplayNameDraft : currentDisplayName}
+                    onChange={(event) => {
+                      setProfileDisplayNameDraft(event.target.value);
+                      setProfileError(null);
+                    }}
+                    readOnly={!isEditingProfile}
+                    disabled={profileMutation.isPending}
                   />
                 </div>
                 <div>
                   <label className="text-xs text-oc-faint">Email</label>
-                  <Input className="mt-1" defaultValue={user?.email} disabled />
+                  <Input className="mt-1" value={user?.email ?? ""} readOnly disabled />
                 </div>
               </div>
-              <Button type="button" disabled>
-                Save changes
-              </Button>
-              <p className="text-xs text-oc-faint">
-                {/* TODO: PATCH /users/me or /auth/profile */}
-                Wire profile update API when available.
-              </p>
+
+              {profileError ? <p className="text-xs text-red-300">{profileError}</p> : null}
+
+              {!isEditingProfile ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setProfileDisplayNameDraft(currentDisplayName);
+                    setProfileError(null);
+                    setIsEditingProfile(true);
+                  }}
+                >
+                  Edit profile
+                </Button>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={profileMutation.isPending}
+                    onClick={() => {
+                      const normalized = profileDisplayNameDraft.trim().replace(/\s+/g, " ");
+                      if (normalized.length < 2) {
+                        setProfileError("Display name must be at least 2 characters");
+                        return;
+                      }
+                      setProfileError(null);
+                      profileMutation.mutate();
+                    }}
+                  >
+                    {profileMutation.isPending ? "Saving…" : "Save changes"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={profileMutation.isPending}
+                    onClick={() => {
+                      setProfileDisplayNameDraft(currentDisplayName);
+                      setProfileError(null);
+                      setIsEditingProfile(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </Card>
           )}
 
@@ -605,9 +724,15 @@ export default function SettingsPage() {
                   </label>
 
                   <Input
+                    ref={companyNameInputRef}
                     className="mt-1"
-                    defaultValue={company?.name}
-                    disabled
+                    value={isEditingCompany ? companyNameDraft : (company?.name ?? "")}
+                    onChange={(event) => {
+                      setCompanyNameDraft(event.target.value);
+                      setCompanyNameError(null);
+                    }}
+                    readOnly={!isEditingCompany || !canEditCompanyName}
+                    disabled={companyProfileMutation.isPending || !canEditCompanyName}
                   />
                 </div>
 
@@ -616,18 +741,80 @@ export default function SettingsPage() {
                     Company ID
                   </label>
 
-                  <Input
-                    className="mt-1"
-                    defaultValue={company?.id}
-                    disabled
-                  />
+                  <div className="mt-1 flex flex-wrap items-center gap-2 rounded-lg border border-oc-border bg-oc-bg/50 px-3 py-2">
+                    <span className="max-w-full truncate text-xs text-oc-text">
+                      {company?.id ?? ""}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="h-8 px-3 text-xs"
+                      disabled={!company?.id}
+                      onClick={() => {
+                        if (!company?.id) return;
+                        copyToClipboard(company.id, "Company ID");
+                      }}
+                    >
+                      Copy ID
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              <p className="text-sm text-oc-muted">
-                Company-level branding, billing, domains, and workspace controls
-                will connect to future backend company management APIs.
-              </p>
+              {companyNameError ? (
+                <p className="text-xs text-red-300">{companyNameError}</p>
+              ) : null}
+
+              {canEditCompanyName && !isEditingCompany ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setCompanyNameDraft(company?.name ?? "");
+                    setCompanyNameError(null);
+                    setIsEditingCompany(true);
+                  }}
+                >
+                  Edit company
+                </Button>
+              ) : null}
+
+              {canEditCompanyName && isEditingCompany ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={companyProfileMutation.isPending}
+                    onClick={() => {
+                      const normalized = companyNameDraft.trim().replace(/\s+/g, " ");
+                      if (normalized.length < 2) {
+                        setCompanyNameError("Company name must be at least 2 characters");
+                        return;
+                      }
+
+                      setCompanyNameError(null);
+                      companyProfileMutation.mutate();
+                    }}
+                  >
+                    {companyProfileMutation.isPending ? "Saving…" : "Save changes"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={companyProfileMutation.isPending}
+                    onClick={() => {
+                      setCompanyNameDraft(company?.name ?? "");
+                      setCompanyNameError(null);
+                      setIsEditingCompany(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : null}
 
               <div className="space-y-4 rounded-lg border border-oc-border bg-oc-bg/40 p-4">
                 <div>

@@ -36,6 +36,19 @@ export async function fetchCurrentSession(token: string) {
   return normalizeMeResponse(raw);
 }
 
+export async function updateCurrentProfileApi(
+  token: string,
+  body: { displayName: string },
+) {
+  const raw = await apiFetch<unknown>("/auth/me", {
+    method: "PATCH",
+    token,
+    body,
+  });
+
+  return normalizeMeResponse(raw);
+}
+
 export async function logoutApi(token?: string | null): Promise<void> {
   await apiFetch<void>("/auth/logout", {
     method: "POST",

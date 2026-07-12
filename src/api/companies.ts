@@ -37,3 +37,14 @@ export async function updateCompanyPortalSettings(
     body,
   });
 }
+
+export async function updateCompanyProfileName(
+  token: string,
+  body: { name: string },
+): Promise<{ company: { id: string; name: string; companySlug?: string | null; supportPortalEnabled?: boolean } }> {
+  return apiFetch("/companies/me", {
+    method: "PATCH",
+    token,
+    body,
+  });
+}

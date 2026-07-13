@@ -23,6 +23,7 @@ export const queryKeys = {
   slaPolicies: ["sla-policies"] as const,
   assignmentRules: ["assignment-rules"] as const,
   emailAccounts: ["email-accounts"] as const,
+  channelProviderReadiness: ["channel-provider-readiness"] as const,
   widgetInstallations: ["widget-installations"] as const,
   widgetFaqEntries: (installationId: string) =>
     ["widget-faq-entries", installationId] as const,

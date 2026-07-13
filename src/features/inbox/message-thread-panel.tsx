@@ -1094,8 +1094,11 @@ function DeliveryTick({
   if (state === "READ") {
     return <CheckCheck className="h-3.5 w-3.5 text-sky-200" />;
   }
-  if (state === "DELIVERED" || state === "SENT") {
+  if (state === "DELIVERED") {
     return <CheckCheck className="h-3.5 w-3.5 opacity-80" />;
+  }
+  if (state === "SENT") {
+    return <span className="text-[10px] font-medium">Accepted</span>;
   }
   return <Check className="h-3.5 w-3.5 opacity-80" />;
 }

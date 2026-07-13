@@ -64,6 +64,7 @@ import {
   listEmailAccounts,
   updateEmailAccount,
 } from "@/api/email";
+import { getChannelProviderReadiness } from "@/api/channels";
 import {
   getCompanyPortalSettings,
   updateCompanyProfileName,
@@ -79,6 +80,7 @@ import type {
   AssignmentRuleTargetType,
   AuthUser,
   EmailAccount,
+  ChannelProviderReadiness,
   SavedReply,
   SlaPolicy,
   Tag,
@@ -2001,11 +2003,24 @@ function EmailChannelsSettings({
     gcTime: 30 * 60_000,
     refetchOnMount: false,
   });
+  const readinessQuery = useQuery({
+    queryKey: queryKeys.channelProviderReadiness,
+    queryFn: () => getChannelProviderReadiness(token),
+    enabled: Boolean(token),
+    staleTime: 2 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnMount: false,
+  });
   const [editing, setEditing] = useState<EmailAccount | null>(null);
   const [fromEmail, setFromEmail] = useState("");
   const [fromName, setFromName] = useState("");
   const canManage = hasPermission(user?.role, Permissions.manageEmailChannels);
-  const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.emailAccounts });
+  const refresh = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: queryKeys.emailAccounts }),
+      qc.invalidateQueries({ queryKey: queryKeys.channelProviderReadiness }),
+    ]);
+  };
   const reset = () => {
     setEditing(null);
     setFromEmail("");
@@ -2060,6 +2075,16 @@ function EmailChannelsSettings({
 
   return (
     <div className="space-y-4">
+      <ProviderReadinessCard
+        readiness={readinessQuery.data}
+        loading={readinessQuery.isLoading}
+        error={
+          readinessQuery.error
+            ? getErrorMessage(readinessQuery.error, "Could not load provider readiness")
+            : null
+        }
+      />
+
       <Card className="space-y-4 p-5">
         <div>
           <h2 className="text-sm font-semibold text-oc-text">Email channel</h2>
@@ -2108,8 +2133,8 @@ function EmailChannelsSettings({
           </div>
         </form>
         <p className="text-xs text-oc-faint">
-          Resend delivery requires RESEND_API_KEY and EMAIL_WEBHOOK_SECRET in
-          the backend environment.
+          Resend delivery requires a verified sender domain and lifecycle webhook
+          subscriptions. Use the readiness panel above for provider-specific actions.
         </p>
       </Card>
 
@@ -2190,6 +2215,89 @@ function EmailChannelsSettings({
         </div>
       </Card>
     </div>
+  );
+}
+
+function ProviderReadinessCard({
+  readiness,
+  loading,
+  error,
+}: {
+  readiness?: ChannelProviderReadiness;
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <Card className="space-y-4 p-5">
+      <div>
+        <h2 className="text-sm font-semibold text-oc-text">Provider readiness</h2>
+        <p className="mt-1 text-sm text-oc-muted">
+          Outbound statuses are truthful only when provider readiness is complete.
+          Fix the items below before treating delivery metrics as production evidence.
+        </p>
+      </div>
+
+      {loading && <p className="text-sm text-oc-muted">Checking provider readiness...</p>}
+      {error && (
+        <p className="rounded-lg border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-200">
+          {error}
+        </p>
+      )}
+
+      {!loading && !error && readiness && (
+        <div className="grid gap-3">
+          <div className="rounded-lg border border-oc-border bg-oc-bg/45 p-4">
+            <p className="text-sm font-semibold text-oc-text">WhatsApp</p>
+            <p className="mt-1 text-xs uppercase text-oc-faint">
+              {readiness.whatsapp.productionReady
+                ? "READY"
+                : readiness.whatsapp.isTestNumber
+                  ? "TEST NUMBER"
+                  : "NOT READY"}
+            </p>
+            <p className="mt-2 text-sm text-oc-muted">
+              {[
+                readiness.whatsapp.displayPhoneNumber,
+                readiness.whatsapp.verifiedName,
+                readiness.whatsapp.phoneNumberIdHint,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "No active sender details"}
+            </p>
+            {readiness.whatsapp.actionableErrors.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-200">
+                {readiness.whatsapp.actionableErrors.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-oc-border bg-oc-bg/45 p-4">
+            <p className="text-sm font-semibold text-oc-text">Email (Resend)</p>
+            <p className="mt-1 text-xs uppercase text-oc-faint">
+              {readiness.email.productionReady ? "READY" : "NOT READY"}
+            </p>
+            <p className="mt-2 text-sm text-oc-muted">
+              Sender: {readiness.email.configuredFromEmail || "Not configured"}
+            </p>
+            <p className="text-sm text-oc-muted">
+              Verified domains: {readiness.email.verifiedDomains.join(", ") || "None"}
+            </p>
+            <p className="text-sm text-oc-muted">
+              Webhook events: {readiness.email.webhookEvents.join(", ") || "None"}
+            </p>
+            {readiness.email.actionableErrors.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-200">
+                {readiness.email.actionableErrors.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

@@ -263,6 +263,35 @@ export interface EmailAccount {
   updatedAt: string;
 }
 
+export interface WhatsAppProviderReadiness {
+  configured: boolean;
+  productionReady: boolean;
+  isTestNumber: boolean;
+  phoneNumberIdHint?: string | null;
+  displayPhoneNumber?: string | null;
+  verifiedName?: string | null;
+  qualityRating?: string | null;
+  codeVerificationStatus?: string | null;
+  actionableErrors: string[];
+}
+
+export interface EmailProviderReadiness {
+  configured: boolean;
+  productionReady: boolean;
+  senderDomainVerified: boolean;
+  senderDomain?: string | null;
+  configuredFromEmail?: string | null;
+  verifiedDomains: string[];
+  webhookEndpoint?: string | null;
+  webhookEvents: string[];
+  actionableErrors: string[];
+}
+
+export interface ChannelProviderReadiness {
+  whatsapp: WhatsAppProviderReadiness;
+  email: EmailProviderReadiness;
+}
+
 export interface Attachment {
   id: string;
   companyId?: string;

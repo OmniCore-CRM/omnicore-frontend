@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Clock3,
@@ -17,6 +17,8 @@ import { getCustomer, listCustomers } from "@/api/customers";
 import { listTags } from "@/api/tags";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
+import { SOCKET_EVENTS } from "@/constants/socket-events";
+import { useSocket } from "@/components/providers/socket-provider";
 import { useAuthStore } from "@/stores/auth-store";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +87,7 @@ const displayUser = (user?: CustomerTicketSummary["assignee"] | null) =>
   "Unassigned";
 
 const timelineIconClass = (type: CustomerTimelineItem["type"]) => {
+  if (type === "AGENT_REPLY") return "bg-emerald-500/20 text-emerald-200";
   if (type.includes("MESSAGE")) return "bg-emerald-500/20 text-emerald-200";
   if (type.includes("TICKET")) return "bg-violet-500/20 text-violet-200";
   return "bg-oc-panel text-oc-muted";
@@ -100,6 +103,8 @@ const daysAgo = (days: string) =>
 
 export default function CustomersPage() {
   const token = useAuthStore((s) => s.accessToken);
+  const socket = useSocket();
+  const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const debouncedSearch = useDebouncedValue(q);
   const [tagId, setTagId] = useState("");
@@ -163,6 +168,38 @@ export default function CustomersPage() {
     gcTime: 30 * 60_000,
     refetchOnMount: false,
   });
+
+  useEffect(() => {
+    if (!socket || !token) return;
+
+    const refreshCustomers = () => {
+      void queryClient.invalidateQueries({ queryKey: ["customers"] });
+
+      if (selectedId) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.customer(selectedId),
+        });
+      }
+    };
+
+    socket.on(SOCKET_EVENTS.NEW_MESSAGE, refreshCustomers);
+    socket.on(SOCKET_EVENTS.MESSAGE_STATUS_UPDATED, refreshCustomers);
+    socket.on(SOCKET_EVENTS.CONVERSATION_UPDATED, refreshCustomers);
+    socket.on("ticket_created", refreshCustomers);
+    socket.on("ticket_updated", refreshCustomers);
+    socket.on("ticket_note_added", refreshCustomers);
+    socket.on("attachment_created", refreshCustomers);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.NEW_MESSAGE, refreshCustomers);
+      socket.off(SOCKET_EVENTS.MESSAGE_STATUS_UPDATED, refreshCustomers);
+      socket.off(SOCKET_EVENTS.CONVERSATION_UPDATED, refreshCustomers);
+      socket.off("ticket_created", refreshCustomers);
+      socket.off("ticket_updated", refreshCustomers);
+      socket.off("ticket_note_added", refreshCustomers);
+      socket.off("attachment_created", refreshCustomers);
+    };
+  }, [queryClient, selectedId, socket, token]);
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden bg-oc-bg">

@@ -17,6 +17,11 @@ export const queryKeys = {
     ["tags", params ?? {}] as const,
   analyticsOverview: (params: Record<string, string>) =>
     ["analytics", "overview", params] as const,
+  feedbackOverview: (params: Record<string, string>) =>
+    ["feedback", "overview", params] as const,
+  feedbackDetractors: (params?: Record<string, string | undefined>) =>
+    ["feedback", "detractors", params ?? {}] as const,
+  feedbackTriggerConfig: ["feedback", "trigger-config"] as const,
   teams: ["teams"] as const,
   auditLogs: (params?: Record<string, string | undefined>) =>
     ["audit-logs", params ?? {}] as const,

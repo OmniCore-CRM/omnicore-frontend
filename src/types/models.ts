@@ -561,7 +561,8 @@ export interface NotificationItem {
     | "INVITE_ACCEPTED"
     | "USER_ACTIVATED"
     | "TEAM_MEMBER_ADDED"
-    | "ROLE_CHANGED";
+    | "ROLE_CHANGED"
+    | "FEEDBACK_DETRACTOR_ESCALATION";
   title: string;
   message: string;
   body?: string;
@@ -807,4 +808,169 @@ export interface AnalyticsOverview {
     } | null;
   };
   recentActivity: AnalyticsRecentActivity[];
+}
+
+export type FeedbackOverviewRange = "7d" | "30d" | "90d";
+export type FeedbackSurveyType = "CSAT" | "NPS";
+export type FeedbackSurveyStatus = "PENDING" | "SENT" | "COMPLETED" | "EXPIRED";
+export type FeedbackTriggerSource = "TICKET_RESOLVED" | "CONVERSATION_RESOLVED";
+export type FeedbackTriggerMode = "DISABLED" | "CSAT" | "NPS" | "BOTH";
+export type FeedbackSentiment = "DETRACTOR" | "NEUTRAL" | "SATISFIED" | "PASSIVE" | "PROMOTER";
+export type FeedbackEscalationStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "DISMISSED";
+
+export interface FeedbackTriggerConfig {
+  id: string;
+  source: FeedbackTriggerSource;
+  mode: FeedbackTriggerMode;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface FeedbackSurvey {
+  id: string;
+  type: FeedbackSurveyType;
+  status: FeedbackSurveyStatus;
+  triggerSource: FeedbackTriggerSource;
+  triggerEventKey: string;
+  expiresAt: string;
+  sentAt?: string | null;
+  completedAt?: string | null;
+  ticketId?: string | null;
+  conversationId?: string | null;
+  customerId: string;
+  channel?: ConversationChannel | null;
+  assigneeId?: string | null;
+  createdAt: string;
+}
+
+export interface FeedbackResponse {
+  id: string;
+  surveyId: string;
+  type: FeedbackSurveyType;
+  score: number;
+  comment?: string | null;
+  sentiment: FeedbackSentiment;
+  submittedAt: string;
+  ticketId?: string | null;
+  conversationId?: string | null;
+  customerId: string;
+  channel?: ConversationChannel | null;
+  assigneeId?: string | null;
+}
+
+export interface FeedbackEscalation {
+  id: string;
+  status: FeedbackEscalationStatus;
+  reason?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignedTo?: {
+    id: string;
+    firstName: string;
+    lastName?: string | null;
+    email?: string | null;
+    role?: UserRole;
+  } | null;
+  survey: FeedbackSurvey;
+  response: FeedbackResponse;
+  customer: {
+    id: string;
+    firstName: string;
+    lastName?: string | null;
+    email?: string | null;
+  };
+}
+
+export interface FeedbackDetractorList {
+  items: FeedbackEscalation[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+export interface FeedbackOverview {
+  range: FeedbackOverviewRange | "all" | "custom";
+  period: {
+    from: string | null;
+    to: string;
+  };
+  filters: {
+    teamId: string | null;
+    channel: ConversationChannel | null;
+    assigneeId: string | null;
+  };
+  summary: {
+    totalResponses: number;
+    csatResponses: number;
+    npsResponses: number;
+    openDetractorEscalations: number;
+  };
+  csat: {
+    average: number | null;
+    responses: number;
+  };
+  nps: {
+    score: number | null;
+    responses: number;
+    promoters: number;
+    passives: number;
+    detractors: number;
+  };
+  sentiments: {
+    detractor: number;
+    neutral: number;
+    satisfied: number;
+    passive: number;
+    promoter: number;
+  };
+  trends: Array<{
+    date: string;
+    responses: number;
+    detractors: number;
+  }>;
+}
+
+export interface FeedbackPublicSurvey {
+  survey: {
+    id: string;
+    type: FeedbackSurveyType;
+    status: FeedbackSurveyStatus;
+    expiresAt: string;
+    completedAt?: string | null;
+  };
+  company: {
+    id: string;
+    name: string;
+  };
+  customer: {
+    id: string;
+    firstName: string;
+    lastName?: string | null;
+  };
+  response: {
+    score: number;
+    comment?: string | null;
+    sentiment: FeedbackSentiment;
+    submittedAt: string;
+  } | null;
+  scoring: {
+    min: number;
+    max: number;
+    labels: Record<number, string>;
+  };
+}
+
+export interface PublicFeedbackSubmissionResult {
+  survey: FeedbackSurvey;
+  response: {
+    id: string;
+    score: number;
+    sentiment: FeedbackSentiment;
+    submittedAt: string;
+  };
+  escalation: {
+    id: string;
+    status: FeedbackEscalationStatus;
+    assignedToId?: string | null;
+  } | null;
 }

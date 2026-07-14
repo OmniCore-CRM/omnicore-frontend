@@ -12,6 +12,7 @@ import {
   Inbox,
   Library,
   MessageSquare,
+  MessageSquareHeart,
   Settings,
   Ticket,
   Users,
@@ -32,6 +33,7 @@ const links = [
   { href: "/tickets", label: "Tickets", icon: Ticket },
   { href: "/teams", label: "Teams", icon: UsersRound },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/feedback", label: "Feedback", icon: MessageSquareHeart },
   { href: "/knowledge-base", label: "Knowledge Base", icon: Library },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

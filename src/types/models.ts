@@ -677,6 +677,12 @@ export interface AssignmentCenterOverview {
 export type AnalyticsPresetRange = "7d" | "30d" | "90d";
 export type AnalyticsRange = AnalyticsPresetRange | "all" | "custom";
 
+export interface AnalyticsFilters {
+  teamId: string | null;
+  channel: ConversationChannel | null;
+  slaStatus: SlaStatus | null;
+}
+
 export interface AnalyticsBreakdownItem {
   key: string;
   count: number;
@@ -700,12 +706,49 @@ export interface AnalyticsRecentActivity {
   createdAt: string;
 }
 
+export interface AnalyticsAgentPerformanceItem {
+  assigneeId: string;
+  name: string;
+  assignedTickets: number;
+  resolvedTickets: number;
+  breachedTickets: number;
+  avgFirstResponseMinutes: number | null;
+  avgResolutionMinutes: number | null;
+}
+
+export interface AnalyticsDailyTrendPoint {
+  date: string;
+  conversations: number;
+  tickets: number;
+  resolvedTickets: number;
+  breachedTickets: number;
+}
+
+export interface AnalyticsChannelTrendSeries {
+  channel: ConversationChannel;
+  points: Array<{
+    date: string;
+    count: number;
+  }>;
+}
+
+export interface AnalyticsTeamTrendSeries {
+  teamId: string | null;
+  name: string;
+  points: Array<{
+    date: string;
+    tickets: number;
+    conversations: number;
+  }>;
+}
+
 export interface AnalyticsOverview {
   range: AnalyticsRange;
   period: {
     from: string | null;
     to: string;
   };
+  filters: AnalyticsFilters;
   summary: {
     totalCustomers: number;
     totalConversations: number;
@@ -718,11 +761,50 @@ export interface AnalyticsOverview {
     attachmentsCount: number;
     teamCount: number;
   };
+  metrics: {
+    firstResponseAvgMinutes: number | null;
+    resolutionAvgMinutes: number | null;
+    firstResponseSampleSize: number;
+    resolutionSampleSize: number;
+  };
+  sla: {
+    onTrack: number;
+    atRisk: number;
+    breached: number;
+    paused: number;
+    complianceRatePct: number | null;
+  };
   conversationsByChannel: AnalyticsBreakdownItem[];
   conversationsByStatus: AnalyticsBreakdownItem[];
   ticketsByStatus: AnalyticsBreakdownItem[];
   ticketsByPriority: AnalyticsBreakdownItem[];
   ticketsByTeam: AnalyticsTeamItem[];
   conversationsByTeam: AnalyticsTeamItem[];
+  agentPerformance: AnalyticsAgentPerformanceItem[];
+  trends: {
+    daily: AnalyticsDailyTrendPoint[];
+    channels: AnalyticsChannelTrendSeries[];
+    teams: AnalyticsTeamTrendSeries[];
+  };
+  comparison: {
+    previousPeriod: {
+      from: string;
+      to: string;
+      totalConversations: number;
+      totalTickets: number;
+      resolvedClosedTickets: number;
+      breachedTickets: number;
+      firstResponseAvgMinutes: number | null;
+      resolutionAvgMinutes: number | null;
+    } | null;
+    deltas: {
+      totalConversationsPct: number | null;
+      totalTicketsPct: number | null;
+      resolvedClosedTicketsPct: number | null;
+      breachedTicketsPct: number | null;
+      firstResponseAvgMinutesPct: number | null;
+      resolutionAvgMinutesPct: number | null;
+    } | null;
+  };
   recentActivity: AnalyticsRecentActivity[];
 }

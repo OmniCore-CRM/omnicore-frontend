@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type ComponentType } from "react";
 import { format, formatDistanceToNow, isValid, parseISO } from "date-fns";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +16,7 @@ import {
   Paperclip,
   RefreshCw,
   Ticket,
+  TrendingUp,
   Users,
   UsersRound,
 } from "lucide-react";
@@ -22,6 +24,7 @@ import {
   type AnalyticsOverviewRequest,
   getAnalyticsOverview,
 } from "@/api/analytics";
+import { listTeams } from "@/api/teams";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
 import { useAuthStore } from "@/stores/auth-store";
@@ -29,17 +32,35 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
+  AnalyticsAgentPerformanceItem,
   AnalyticsBreakdownItem,
   AnalyticsOverview,
   AnalyticsPresetRange,
   AnalyticsRecentActivity,
   AnalyticsTeamItem,
+  ConversationChannel,
+  SlaStatus,
+  Team,
 } from "@/types/models";
 
 const ranges: { value: AnalyticsPresetRange; label: string }[] = [
   { value: "7d", label: "7 days" },
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
+];
+
+const channelOptions: Array<{ value: ConversationChannel; label: string }> = [
+  { value: "WEBSITE", label: "Website" },
+  { value: "WHATSAPP", label: "WhatsApp" },
+  { value: "EMAIL", label: "Email" },
+  { value: "INSTAGRAM", label: "Instagram" },
+];
+
+const slaOptions: Array<{ value: SlaStatus; label: string }> = [
+  { value: "ON_TRACK", label: "On track" },
+  { value: "AT_RISK", label: "At risk" },
+  { value: "BREACHED", label: "Breached" },
+  { value: "PAUSED", label: "Paused" },
 ];
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -49,6 +70,20 @@ const isIsoDate = (value: string | null) =>
 
 const isPresetRange = (value: string | null): value is AnalyticsPresetRange =>
   value === "7d" || value === "30d" || value === "90d";
+
+const isSlaStatus = (value: string | null): value is SlaStatus =>
+  value === "ON_TRACK" ||
+  value === "AT_RISK" ||
+  value === "BREACHED" ||
+  value === "PAUSED";
+
+const isConversationChannel = (
+  value: string | null,
+): value is ConversationChannel =>
+  value === "WEBSITE" ||
+  value === "WHATSAPP" ||
+  value === "EMAIL" ||
+  value === "INSTAGRAM";
 
 const isValidCustomRange = (startDate: string | null, endDate: string | null) => {
   if (!isIsoDate(startDate) || !isIsoDate(endDate)) return false;
@@ -90,6 +125,15 @@ const formatLabel = (value: string) =>
     .replace(/\b\w/g, (character) => character.toUpperCase());
 
 const formatNumber = (value: number) => value.toLocaleString();
+
+const formatDelta = (value: number | null) => {
+  if (value === null) return "-";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
+};
+
+const formatMinutes = (value: number | null) =>
+  value === null ? "-" : `${value.toFixed(1)}m`;
 
 function SummaryCard({
   label,
@@ -188,10 +232,7 @@ function TeamWorkload({
         b.tickets + b.conversations - (a.tickets + a.conversations) ||
         a.name.localeCompare(b.name),
     );
-  const max = Math.max(
-    ...rows.map((row) => row.tickets + row.conversations),
-    1,
-  );
+  const max = Math.max(...rows.map((row) => row.tickets + row.conversations), 1);
 
   return (
     <Card className="min-w-0 p-4 md:p-5">
@@ -245,6 +286,233 @@ function TeamWorkload({
         </div>
       ) : (
         <PanelEmpty message="No team workload in this time range." />
+      )}
+    </Card>
+  );
+}
+
+function TimingAndSlaPanel({ data }: { data: AnalyticsOverview }) {
+  const slaTotal = data.sla.onTrack + data.sla.atRisk + data.sla.breached + data.sla.paused;
+
+  return (
+    <Card className="min-w-0 p-4 md:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-oc-text">Response and SLA health</h2>
+          <p className="mt-1 text-sm text-oc-muted">
+            First response, resolution time, and SLA compliance from ticket lifecycle data.
+          </p>
+        </div>
+        <Link
+          href="/tickets?slaStatus=BREACHED"
+          className="inline-flex h-8 items-center rounded-md border border-oc-border px-3 text-xs font-medium text-oc-muted transition-colors hover:bg-oc-panel hover:text-oc-text"
+        >
+          Drill into breached
+        </Link>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border border-oc-border bg-oc-panel p-3">
+          <p className="text-xs text-oc-muted">Avg first response</p>
+          <p className="mt-1 text-lg font-semibold text-oc-text">
+            {formatMinutes(data.metrics.firstResponseAvgMinutes)}
+          </p>
+          <p className="text-xs text-oc-faint">n={data.metrics.firstResponseSampleSize}</p>
+        </div>
+        <div className="rounded-lg border border-oc-border bg-oc-panel p-3">
+          <p className="text-xs text-oc-muted">Avg resolution</p>
+          <p className="mt-1 text-lg font-semibold text-oc-text">
+            {formatMinutes(data.metrics.resolutionAvgMinutes)}
+          </p>
+          <p className="text-xs text-oc-faint">n={data.metrics.resolutionSampleSize}</p>
+        </div>
+        <div className="rounded-lg border border-oc-border bg-oc-panel p-3">
+          <p className="text-xs text-oc-muted">SLA compliance</p>
+          <p className="mt-1 text-lg font-semibold text-oc-text">
+            {data.sla.complianceRatePct === null ? "-" : `${data.sla.complianceRatePct.toFixed(1)}%`}
+          </p>
+          <p className="text-xs text-oc-faint">Total scoped tickets: {slaTotal}</p>
+        </div>
+        <div className="rounded-lg border border-oc-border bg-oc-panel p-3">
+          <p className="text-xs text-oc-muted">SLA breached</p>
+          <p className="mt-1 text-lg font-semibold text-oc-warning">{data.sla.breached}</p>
+          <p className="text-xs text-oc-faint">At risk: {data.sla.atRisk}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function TrendPanel({ data }: { data: AnalyticsOverview }) {
+  const max = Math.max(
+    ...data.trends.daily.map((point) =>
+      Math.max(point.conversations, point.tickets, point.resolvedTickets, point.breachedTickets),
+    ),
+    1,
+  );
+
+  return (
+    <Card className="min-w-0 p-4 md:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-oc-text">Historical trend</h2>
+          <p className="mt-1 text-sm text-oc-muted">
+            Daily conversations, tickets, resolutions, and SLA breaches.
+          </p>
+        </div>
+        <TrendingUp className="h-5 w-5 text-oc-accent-2" />
+      </div>
+
+      {data.trends.daily.length ? (
+        <div className="mt-5 overflow-x-auto">
+          <div className="flex min-w-[620px] items-end gap-1.5">
+            {data.trends.daily.map((point) => {
+              const total =
+                point.conversations + point.tickets + point.resolvedTickets + point.breachedTickets;
+              const height = Math.max((total / (max * 3)) * 150, 4);
+              return (
+                <div key={point.date} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="flex h-[150px] w-full items-end justify-center">
+                    <div
+                      className="w-full rounded-sm bg-violet-400/80"
+                      style={{ height }}
+                      title={`${point.date}: conv ${point.conversations}, tix ${point.tickets}, resolved ${point.resolvedTickets}, breached ${point.breachedTickets}`}
+                    />
+                  </div>
+                  <span className="text-[10px] text-oc-faint">{point.date.slice(5)}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-4 text-xs text-oc-muted">
+            <span>Conversations: {data.trends.daily.reduce((sum, p) => sum + p.conversations, 0)}</span>
+            <span>Tickets: {data.trends.daily.reduce((sum, p) => sum + p.tickets, 0)}</span>
+            <span>Resolved: {data.trends.daily.reduce((sum, p) => sum + p.resolvedTickets, 0)}</span>
+            <span>Breached: {data.trends.daily.reduce((sum, p) => sum + p.breachedTickets, 0)}</span>
+          </div>
+        </div>
+      ) : (
+        <PanelEmpty message="No trend points in this range." />
+      )}
+    </Card>
+  );
+}
+
+function ComparisonPanel({ data }: { data: AnalyticsOverview }) {
+  const deltas = data.comparison.deltas;
+
+  return (
+    <Card className="min-w-0 p-4 md:p-5">
+      <div>
+        <h2 className="text-base font-semibold text-oc-text">Period comparison</h2>
+        <p className="mt-1 text-sm text-oc-muted">
+          Change versus previous equivalent period.
+        </p>
+      </div>
+
+      {deltas ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <MetricDelta label="Conversations" value={deltas.totalConversationsPct} />
+          <MetricDelta label="Tickets" value={deltas.totalTicketsPct} />
+          <MetricDelta label="Resolved/Closed" value={deltas.resolvedClosedTicketsPct} />
+          <MetricDelta label="SLA breached" value={deltas.breachedTicketsPct} invert />
+          <MetricDelta
+            label="Avg first response"
+            value={deltas.firstResponseAvgMinutesPct}
+            invert
+          />
+          <MetricDelta
+            label="Avg resolution"
+            value={deltas.resolutionAvgMinutesPct}
+            invert
+          />
+        </div>
+      ) : (
+        <PanelEmpty message="Comparison unavailable for this filter and range." />
+      )}
+    </Card>
+  );
+}
+
+function MetricDelta({
+  label,
+  value,
+  invert = false,
+}: {
+  label: string;
+  value: number | null;
+  invert?: boolean;
+}) {
+  const tone =
+    value === null
+      ? "text-oc-muted"
+      : (value > 0) !== invert
+        ? "text-emerald-400"
+        : value < 0
+          ? "text-rose-400"
+          : "text-oc-muted";
+
+  return (
+    <div className="rounded-lg border border-oc-border bg-oc-panel p-3">
+      <p className="text-xs text-oc-muted">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${tone}`}>{formatDelta(value)}</p>
+    </div>
+  );
+}
+
+function AgentPerformancePanel({
+  agents,
+  teamId,
+}: {
+  agents: AnalyticsAgentPerformanceItem[];
+  teamId: string | null;
+}) {
+  return (
+    <Card className="min-w-0 p-4 md:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-oc-text">Agent performance</h2>
+          <p className="mt-1 text-sm text-oc-muted">
+            Ticket ownership, resolution output, and response efficiency.
+          </p>
+        </div>
+        <Link
+          href={`/tickets${teamId ? `?teamId=${encodeURIComponent(teamId)}` : ""}`}
+          className="inline-flex h-8 items-center rounded-md border border-oc-border px-3 text-xs font-medium text-oc-muted transition-colors hover:bg-oc-panel hover:text-oc-text"
+        >
+          Drill into tickets
+        </Link>
+      </div>
+
+      {agents.length ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-[720px] w-full text-sm">
+            <thead>
+              <tr className="border-b border-oc-border text-left text-xs uppercase tracking-wide text-oc-faint">
+                <th className="px-2 py-2">Agent</th>
+                <th className="px-2 py-2">Assigned</th>
+                <th className="px-2 py-2">Resolved</th>
+                <th className="px-2 py-2">Breached</th>
+                <th className="px-2 py-2">Avg first response</th>
+                <th className="px-2 py-2">Avg resolution</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agents.map((agent) => (
+                <tr key={agent.assigneeId} className="border-b border-oc-border/70">
+                  <td className="px-2 py-2 font-medium text-oc-text">{agent.name}</td>
+                  <td className="px-2 py-2 text-oc-muted">{agent.assignedTickets}</td>
+                  <td className="px-2 py-2 text-oc-muted">{agent.resolvedTickets}</td>
+                  <td className="px-2 py-2 text-oc-warning">{agent.breachedTickets}</td>
+                  <td className="px-2 py-2 text-oc-muted">{formatMinutes(agent.avgFirstResponseMinutes)}</td>
+                  <td className="px-2 py-2 text-oc-muted">{formatMinutes(agent.avgResolutionMinutes)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <PanelEmpty message="No assigned-agent data in this scope." />
       )}
     </Card>
   );
@@ -317,7 +585,7 @@ function AnalyticsSkeleton() {
         ))}
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, index) => (
+        {Array.from({ length: 6 }).map((_, index) => (
           <Skeleton key={index} className="h-72 rounded-lg" />
         ))}
       </div>
@@ -325,7 +593,7 @@ function AnalyticsSkeleton() {
   );
 }
 
-function Dashboard({ data }: { data: AnalyticsOverview }) {
+function Dashboard({ data, selectedTeamId }: { data: AnalyticsOverview; selectedTeamId: string | null }) {
   const summaryCards = [
     {
       label: "Customers",
@@ -401,6 +669,10 @@ function Dashboard({ data }: { data: AnalyticsOverview }) {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
+        <TimingAndSlaPanel data={data} />
+        <ComparisonPanel data={data} />
+        <TrendPanel data={data} />
+        <AgentPerformancePanel agents={data.agentPerformance} teamId={selectedTeamId} />
         <BreakdownPanel
           title="Conversations by channel"
           description="Where customer conversations originated."
@@ -445,6 +717,10 @@ export default function AnalyticsPage() {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const range = searchParams.get("range");
+    const teamId = searchParams.get("teamId");
+    const channel = searchParams.get("channel");
+    const slaStatus = searchParams.get("slaStatus");
+    const comparePrevious = searchParams.get("comparePrevious") !== "false";
 
     if (isValidCustomRange(startDate, endDate)) {
       return {
@@ -453,12 +729,20 @@ export default function AnalyticsPage() {
           startDate: startDate!,
           endDate: endDate!,
         },
+        teamId,
+        channel: isConversationChannel(channel) ? channel : null,
+        slaStatus: isSlaStatus(slaStatus) ? slaStatus : null,
+        comparePrevious,
       };
     }
 
     return {
       presetRange: isPresetRange(range) ? range : ("30d" as AnalyticsPresetRange),
       customRange: null,
+      teamId,
+      channel: isConversationChannel(channel) ? channel : null,
+      slaStatus: isSlaStatus(slaStatus) ? slaStatus : null,
+      comparePrevious,
     };
   }, [searchParams]);
 
@@ -481,25 +765,31 @@ export default function AnalyticsPage() {
   };
 
   const request = useMemo<AnalyticsOverviewRequest>(
-    () =>
-      customRange
+    () => ({
+      ...(customRange
         ? { startDate: customRange.startDate, endDate: customRange.endDate }
-        : { range: presetRange },
-    [customRange, presetRange],
+        : { range: presetRange }),
+      ...(selection.teamId ? { teamId: selection.teamId } : {}),
+      ...(selection.channel ? { channel: selection.channel } : {}),
+      ...(selection.slaStatus ? { slaStatus: selection.slaStatus } : {}),
+      comparePrevious: selection.comparePrevious,
+    }),
+    [customRange, presetRange, selection.channel, selection.comparePrevious, selection.slaStatus, selection.teamId],
   );
 
   const analyticsKeyParams = useMemo<Record<string, string>>(
     () => {
-      let params: Record<string, string>;
+      const params: Record<string, string> = "range" in request
+        ? { range: request.range }
+        : {
+            startDate: request.startDate,
+            endDate: request.endDate,
+          };
 
-      if ("range" in request) {
-        params = { range: request.range };
-      } else {
-        params = {
-          startDate: request.startDate,
-          endDate: request.endDate,
-        };
-      }
+      if (request.teamId) params.teamId = request.teamId;
+      if (request.channel) params.channel = request.channel;
+      if (request.slaStatus) params.slaStatus = request.slaStatus;
+      if (request.comparePrevious === false) params.comparePrevious = "false";
 
       return params;
     },
@@ -547,6 +837,15 @@ export default function AnalyticsPage() {
     placeholderData: (previous) => previous,
   });
 
+  const teamsQuery = useQuery({
+    queryKey: queryKeys.teams,
+    queryFn: () => listTeams(token!),
+    enabled: Boolean(token),
+    staleTime: 5 * 60_000,
+  });
+
+  const teams: Team[] = teamsQuery.data ?? [];
+
   return (
     <div className="h-full overflow-y-auto p-3 md:p-4">
       <div className="mx-auto max-w-[1600px] space-y-4">
@@ -560,8 +859,7 @@ export default function AnalyticsPage() {
               Analytics dashboard
             </h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-oc-muted">
-              Understand customer demand, ticket workload, channels, and team
-              activity using current CRM data.
+              Tenant-scoped operational analytics with SLA, agent performance, and trend reporting.
             </p>
           </div>
 
@@ -659,6 +957,75 @@ export default function AnalyticsPage() {
           </div>
         </header>
 
+        <Card className="p-3 md:p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-xs font-medium text-oc-faint">
+              Team filter
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text"
+                value={selection.teamId ?? ""}
+                onChange={(event) => updateSearch({ teamId: event.target.value || null })}
+              >
+                <option value="">All teams</option>
+                {teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-xs font-medium text-oc-faint">
+              Channel filter
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text"
+                value={selection.channel ?? ""}
+                onChange={(event) =>
+                  updateSearch({
+                    channel: event.target.value || null,
+                  })
+                }
+              >
+                <option value="">All channels</option>
+                {channelOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-xs font-medium text-oc-faint">
+              SLA filter
+              <select
+                className="mt-1 h-10 w-full rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text"
+                value={selection.slaStatus ?? ""}
+                onChange={(event) => updateSearch({ slaStatus: event.target.value || null })}
+              >
+                <option value="">All SLA states</option>
+                {slaOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex items-center gap-2 rounded-lg border border-oc-border bg-oc-panel px-3 text-sm text-oc-text">
+              <input
+                type="checkbox"
+                checked={selection.comparePrevious}
+                onChange={(event) =>
+                  updateSearch({
+                    comparePrevious: event.target.checked ? null : "false",
+                  })
+                }
+              />
+              Compare to previous period
+            </label>
+          </div>
+        </Card>
+
         {analyticsQuery.isLoading && <AnalyticsSkeleton />}
 
         {analyticsQuery.isError && (
@@ -685,7 +1052,9 @@ export default function AnalyticsPage() {
           </Card>
         )}
 
-        {analyticsQuery.data && <Dashboard data={analyticsQuery.data} />}
+        {analyticsQuery.data && (
+          <Dashboard data={analyticsQuery.data} selectedTeamId={selection.teamId ?? null} />
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { refreshSessionApi } from "@/api/auth";
 import { useAuthStore } from "@/stores/auth-store";
+import { isTokenExpired } from "@/lib/jwt";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -15,7 +16,22 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [refreshFailed, setRefreshFailed] = useState(false);
 
   useEffect(() => {
-    if (!hasHydrated || accessToken || refreshFailed) return;
+    if (!hasHydrated) return;
+
+    // If we already have a valid token, render immediately
+    // and trigger refresh in background
+    if (accessToken && !isTokenExpired(accessToken)) {
+      // Trigger background refresh without blocking
+      // This ensures next navigation has a fresh token
+      refreshSessionApi().catch(() => {
+        // Ignore background refresh failures
+        // We'll handle actual refresh errors when needed
+      });
+      return;
+    }
+
+    // If token is expired or missing, block and refresh
+    if (refreshFailed) return;
 
     let cancelled = false;
     refreshSessionApi()
@@ -35,7 +51,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, [accessToken, clearSession, hasHydrated, refreshFailed, router, setSession]);
 
-  if (!hasHydrated || (!accessToken && !refreshFailed)) {
+  // Show loading only if we haven't hydrated yet or we're actively refreshing
+  // (not just because token is missing - that triggers a refresh block)
+  if (!hasHydrated) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-oc-bg">
         <div className="flex w-48 flex-col gap-3">
@@ -47,10 +65,23 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!accessToken) {
+  // Show loading while waiting for refresh (only if token was missing/expired)
+  if (!accessToken && !refreshFailed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-oc-bg">
+        <div className="flex w-48 flex-col gap-3">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-5/6" />
+        </div>
+      </div>
+    );
+  }
+
+  if (refreshFailed) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-oc-bg text-oc-muted text-sm">
-        Redirecting…
+        Session expired. Redirecting…
       </div>
     );
   }

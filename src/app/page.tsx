@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { refreshSessionApi } from "@/api/auth";
 import { useAuthStore } from "@/stores/auth-store";
+import { isTokenExpired } from "@/lib/jwt";
 
 export default function HomePage() {
   const router = useRouter();
@@ -14,11 +15,18 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!hasHydrated || checked) return;
-    if (accessToken) {
+
+    // If we have a valid token, redirect immediately
+    if (accessToken && !isTokenExpired(accessToken)) {
       router.replace("/inbox");
+      // Trigger background refresh for next navigation
+      refreshSessionApi().catch(() => {
+        // Ignore background refresh failures
+      });
       return;
     }
 
+    // If token is missing or expired, attempt refresh before redirecting
     let cancelled = false;
     refreshSessionApi()
       .then((session) => {

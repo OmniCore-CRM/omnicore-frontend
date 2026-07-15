@@ -225,7 +225,7 @@ export default function FeedbackPage() {
   });
 
   const loading = overviewQuery.isLoading || detractorsQuery.isLoading;
-  const hasError = overviewQuery.isError || detractorsQuery.isError;
+  const analyticsError = overviewQuery.isError || detractorsQuery.isError;
 
   if (loading) {
     return (
@@ -242,36 +242,41 @@ export default function FeedbackPage() {
       </div>
     );
   }
-
-  if (hasError || !overviewQuery.data || !detractorsQuery.data) {
-    return (
-      <div className="h-full overflow-y-auto p-4 md:p-6">
-        <Card className="mx-auto max-w-2xl p-6 text-center">
-          <AlertCircle className="mx-auto h-8 w-8 text-red-400" />
-          <h2 className="mt-3 text-lg font-semibold text-oc-text">Unable to load feedback analytics</h2>
-          <p className="mt-2 text-sm text-oc-muted">
-            {getErrorMessage(overviewQuery.error ?? detractorsQuery.error, "Try refreshing this page.")}
-          </p>
-          <Button
-            type="button"
-            className="mt-4"
-            onClick={() => {
-              void overviewQuery.refetch();
-              void detractorsQuery.refetch();
-            }}
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Retry
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
-  const data = overviewQuery.data;
+  const overview = overviewQuery.data;
+  const detractors = detractorsQuery.data;
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-6">
+      {analyticsError ? (
+        <Card className="mb-4 border-red-500/40 bg-red-500/10 p-4 text-sm text-oc-muted">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+              <div>
+                <h2 className="text-sm font-semibold text-oc-text">Some feedback analytics failed to load</h2>
+                <p className="mt-1 max-w-2xl text-sm text-oc-muted">
+                  {getErrorMessage(
+                    overviewQuery.error ?? detractorsQuery.error,
+                    "The page will stay available while the failed panels retry."
+                  )}
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void overviewQuery.refetch();
+                void detractorsQuery.refetch();
+              }}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry analytics
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+
       <div className="flex flex-wrap items-end gap-2 rounded-xl border border-oc-border bg-oc-panel p-3">
         <label className="flex min-w-[130px] flex-col gap-1 text-xs text-oc-muted">
           Range
@@ -339,50 +344,54 @@ export default function FeedbackPage() {
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <SummaryTile
           label="Total responses"
-          value={formatNumber(data.summary.totalResponses)}
+          value={overview ? formatNumber(overview.summary.totalResponses) : "—"}
           hint="All feedback submissions in selected filters."
         />
         <SummaryTile
           label="CSAT average"
-          value={formatScore(data.csat.average)}
-          hint={`${formatNumber(data.csat.responses)} responses`}
+          value={overview ? formatScore(overview.csat.average) : "—"}
+          hint={overview ? `${formatNumber(overview.csat.responses)} responses` : "Waiting for analytics data"}
         />
         <SummaryTile
           label="NPS score"
-          value={formatScore(data.nps.score)}
-          hint={`${formatNumber(data.nps.responses)} responses`}
+          value={overview ? formatScore(overview.nps.score) : "—"}
+          hint={overview ? `${formatNumber(overview.nps.responses)} responses` : "Waiting for analytics data"}
         />
         <SummaryTile
           label="Open detractors"
-          value={formatNumber(data.summary.openDetractorEscalations)}
-          hint="Open and in-progress escalations."
+          value={overview ? formatNumber(overview.summary.openDetractorEscalations) : "—"}
+          hint={overview ? "Open and in-progress escalations." : "Waiting for analytics data"}
         />
       </div>
 
       <div className="mt-4 grid gap-3 xl:grid-cols-2">
         <Card className="p-4">
           <h2 className="text-base font-semibold text-oc-text">Sentiment mix</h2>
-          <div className="mt-4 space-y-3">
-            {[
-              ["Detractor", data.sentiments.detractor],
-              ["Neutral", data.sentiments.neutral],
-              ["Satisfied", data.sentiments.satisfied],
-              ["Passive", data.sentiments.passive],
-              ["Promoter", data.sentiments.promoter],
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between text-sm">
-                <span className="text-oc-muted">{label}</span>
-                <span className="font-medium text-oc-text">{formatNumber(Number(value))}</span>
-              </div>
-            ))}
-          </div>
+          {overview ? (
+            <div className="mt-4 space-y-3">
+              {[
+                ["Detractor", overview.sentiments.detractor],
+                ["Neutral", overview.sentiments.neutral],
+                ["Satisfied", overview.sentiments.satisfied],
+                ["Passive", overview.sentiments.passive],
+                ["Promoter", overview.sentiments.promoter],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between text-sm">
+                  <span className="text-oc-muted">{label}</span>
+                  <span className="font-medium text-oc-text">{formatNumber(Number(value))}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-oc-muted">Sentiment data is unavailable until analytics finish loading.</p>
+          )}
         </Card>
 
         <Card className="p-4">
           <h2 className="text-base font-semibold text-oc-text">Response trend</h2>
-          {data.trends.length ? (
+          {overview?.trends.length ? (
             <div className="mt-4 space-y-2">
-              {data.trends.slice(-10).map((point) => (
+              {overview.trends.slice(-10).map((point) => (
                 <div key={point.date} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 text-sm">
                   <span className="text-oc-muted">{point.date}</span>
                   <span className="text-oc-text">{point.responses} responses</span>
@@ -391,7 +400,9 @@ export default function FeedbackPage() {
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-oc-muted">No trend data for this range.</p>
+            <p className="mt-4 text-sm text-oc-muted">
+              {overview ? "No trend data for this range." : "Trend data is unavailable until analytics finish loading."}
+            </p>
           )}
         </Card>
       </div>
@@ -549,9 +560,13 @@ export default function FeedbackPage() {
           </label>
         </div>
 
-        {detractorsQuery.data.items.length ? (
+        {detractorsQuery.isError ? (
+          <p className="mt-4 text-sm text-red-300">
+            {getErrorMessage(detractorsQuery.error, "Could not load detractor escalations")}
+          </p>
+        ) : detractors?.items.length ? (
           <div className="mt-4 space-y-3">
-            {detractorsQuery.data.items.map((item) => (
+            {detractors.items.map((item) => (
               <div
                 key={item.id}
                 className="rounded-lg border border-oc-border bg-oc-bg-mid/40 p-3"

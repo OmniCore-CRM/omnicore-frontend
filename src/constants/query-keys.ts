@@ -21,6 +21,8 @@ export const queryKeys = {
     ["feedback", "overview", params] as const,
   feedbackDetractors: (params?: Record<string, string | undefined>) =>
     ["feedback", "detractors", params ?? {}] as const,
+  feedbackPendingSurveys: (params?: Record<string, string | undefined>) =>
+    ["feedback", "pending-surveys", params ?? {}] as const,
   feedbackTriggerConfig: ["feedback", "trigger-config"] as const,
   teams: ["teams"] as const,
   auditLogs: (params?: Record<string, string | undefined>) =>

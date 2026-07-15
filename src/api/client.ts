@@ -1,6 +1,7 @@
 import { getApiBaseUrl } from "@/lib/env";
 import { useAuthStore } from "@/stores/auth-store";
 import { ApiError, handleResponse, readJson } from "./errors";
+import type { AuthUser, Company } from "@/types/models";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -11,7 +12,13 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   rawBody?: BodyInit;
 }
 
-let refreshPromise: Promise<string | null> | null = null;
+type RefreshedSession = {
+  accessToken: string;
+  user: AuthUser;
+  company: Company;
+};
+
+let refreshPromise: Promise<RefreshedSession | null> | null = null;
 
 function isAuthEndpoint(path: string) {
   return path.startsWith("/auth/");
@@ -32,42 +39,46 @@ function joinUrl(base: string, path: string): string {
   return `${base}${p}`;
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshSessionOnce(): Promise<RefreshedSession | null> {
+  const attemptRefresh = async (): Promise<RefreshedSession | null> => {
+    const res = await fetch(joinUrl(getApiBaseUrl(), "/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (!res.ok) return null;
+
+    const body = await readJson(res);
+    const payload =
+      body && typeof body === "object" && "data" in body
+        ? (body as { data?: unknown }).data
+        : body;
+
+    if (!payload || typeof payload !== "object") return null;
+    const record = payload as Record<string, unknown>;
+    if (
+      typeof record.accessToken !== "string" ||
+      !record.user ||
+      typeof record.user !== "object" ||
+      !record.company ||
+      typeof record.company !== "object"
+    ) {
+      return null;
+    }
+
+    const nextSession: RefreshedSession = {
+      accessToken: record.accessToken,
+      user: record.user as AuthUser,
+      company: record.company as Company,
+    };
+
+    useAuthStore.getState().setSession(nextSession);
+
+    return nextSession;
+  };
+
   if (!refreshPromise) {
-    refreshPromise = (async () => {
-      const res = await fetch(joinUrl(getApiBaseUrl(), "/auth/refresh"), {
-        method: "POST",
-        credentials: "include",
-      });
-
-      if (!res.ok) return null;
-
-      const body = await readJson(res);
-      const payload =
-        body && typeof body === "object" && "data" in body
-          ? (body as { data?: unknown }).data
-          : body;
-
-      if (!payload || typeof payload !== "object") return null;
-      const record = payload as Record<string, unknown>;
-      if (
-        typeof record.accessToken !== "string" ||
-        !record.user ||
-        typeof record.user !== "object" ||
-        !record.company ||
-        typeof record.company !== "object"
-      ) {
-        return null;
-      }
-
-      useAuthStore.getState().setSession({
-        accessToken: record.accessToken,
-        user: record.user as never,
-        company: record.company as never,
-      });
-
-      return record.accessToken;
-    })().finally(() => {
+    refreshPromise = attemptRefresh().finally(() => {
       refreshPromise = null;
     });
   }
@@ -101,9 +112,9 @@ async function request<T>(
   if (res.status === 204) return undefined as T;
 
   if (res.status === 401 && retryOnUnauthorized && !isAuthEndpoint(path)) {
-    const nextToken = await refreshAccessToken();
-    if (nextToken) {
-      return request<T>(path, { ...options, token: nextToken }, false);
+    const refreshed = await refreshSessionOnce();
+    if (refreshed) {
+      return request<T>(path, { ...options, token: refreshed.accessToken }, false);
     }
   }
 

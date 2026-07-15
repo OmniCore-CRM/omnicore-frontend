@@ -61,6 +61,10 @@ const pageTitles: Record<string, { title: string; eyebrow: string }> = {
     title: "Notifications",
     eyebrow: "Realtime alerts and activity updates",
   },
+  "/feedback": {
+    title: "Feedback",
+    eyebrow: "Customer satisfaction and NPS metrics",
+  },
 };
 
 function ConnectionPill({ state }: { state: ReturnType<typeof useSocketConnection> }) {

@@ -960,6 +960,80 @@ export interface FeedbackPublicSurvey {
   };
 }
 
+export interface FeedbackPendingSurveyItem {
+  id: string;
+  type: FeedbackSurveyType;
+  status: FeedbackSurveyStatus;
+  triggerSource: FeedbackTriggerSource;
+  customer: {
+    id: string;
+    firstName: string;
+    lastName?: string | null;
+    email?: string | null;
+  };
+  channel?: ConversationChannel | null;
+  ticketId?: string | null;
+  conversationId?: string | null;
+  createdAt: string;
+  expiresAt: string;
+  handoff: {
+    linkAvailable: boolean;
+    handoffExpiresAt: string | null;
+  };
+  delivery: {
+    status: "NOT_ATTEMPTED" | "ATTEMPTED" | "ACCEPTED" | "FAILED";
+    attemptedAt: string | null;
+    channel: ConversationChannel | null;
+    detail: string | null;
+  };
+  sendCapabilities: {
+    canAttemptSend: boolean;
+    providerReady: boolean;
+    providerReason: string | null;
+  };
+}
+
+export interface FeedbackPendingSurveyList {
+  items: FeedbackPendingSurveyItem[];
+  hasMore: boolean;
+  nextCursor: string | null;
+  providerReadiness: {
+    whatsapp: {
+      productionReady: boolean;
+      actionableErrors: string[];
+    };
+    email: {
+      productionReady: boolean;
+      actionableErrors: string[];
+    };
+  };
+}
+
+export interface FeedbackSurveyLinkRevealResult {
+  surveyId: string;
+  url: string;
+  expiresAt: string;
+}
+
+export interface FeedbackSurveyTokenReissueResult {
+  surveyId: string;
+  status: FeedbackSurveyStatus;
+  url: string;
+  expiresAt: string;
+  handoffExpiresAt: string;
+}
+
+export interface FeedbackSurveyDeliveryResult {
+  surveyId: string;
+  channel: ConversationChannel;
+  accepted: boolean;
+  message: {
+    id: string;
+    status: MessageStatus;
+    conversationId: string;
+  };
+}
+
 export interface PublicFeedbackSubmissionResult {
   survey: FeedbackSurvey;
   response: {

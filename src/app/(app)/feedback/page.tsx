@@ -1,12 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, Link2, RefreshCw, Send } from "lucide-react";
 import {
+  deliverPendingFeedbackSurvey,
   getFeedbackOverview,
   listFeedbackDetractors,
+  listPendingFeedbackSurveys,
+  reissuePendingFeedbackSurveyToken,
+  revealPendingFeedbackSurveyLink,
   type FeedbackOverviewRequest,
 } from "@/api/feedback";
 import { listTeams } from "@/api/teams";
@@ -17,10 +21,12 @@ import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import type {
   ConversationChannel,
   FeedbackEscalationStatus,
   FeedbackOverviewRange,
+  FeedbackPendingSurveyItem,
 } from "@/types/models";
 
 const rangeOptions: Array<{ value: FeedbackOverviewRange; label: string }> = [
@@ -63,6 +69,7 @@ function SummaryTile({ label, value, hint }: { label: string; value: string; hin
 }
 
 export default function FeedbackPage() {
+  const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.accessToken);
 
   const [range, setRange] = useState<FeedbackOverviewRange>("30d");
@@ -121,6 +128,66 @@ export default function FeedbackPage() {
     queryKey: queryKeys.users,
     queryFn: () => listUsers(token!),
     enabled: Boolean(token),
+  });
+
+  const pendingSurveysQuery = useQuery({
+    queryKey: queryKeys.feedbackPendingSurveys({ status: "pending,sent" }),
+    queryFn: () => listPendingFeedbackSurveys(token!, { limit: 8 }),
+    enabled: Boolean(token),
+  });
+
+  const copyLinkMutation = useMutation({
+    mutationFn: async (surveyId: string) => {
+      const result = await revealPendingFeedbackSurveyLink(token!, surveyId);
+      await navigator.clipboard.writeText(result.url);
+      return result;
+    },
+    onSuccess: () => {
+      toast.success("Survey link copied");
+      void queryClient.invalidateQueries({ queryKey: queryKeys.feedbackPendingSurveys() });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not copy survey link"));
+    },
+  });
+
+  const reissueTokenMutation = useMutation({
+    mutationFn: async (surveyId: string) => {
+      const result = await reissuePendingFeedbackSurveyToken(token!, surveyId, {
+        reason: "operator_reissue",
+      });
+      await navigator.clipboard.writeText(result.url);
+      return result;
+    },
+    onSuccess: () => {
+      toast.success("Survey token reissued and new link copied");
+      void queryClient.invalidateQueries({ queryKey: queryKeys.feedbackPendingSurveys() });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not reissue survey token"));
+    },
+  });
+
+  const deliverMutation = useMutation({
+    mutationFn: async (survey: FeedbackPendingSurveyItem) => {
+      if (survey.channel !== "WHATSAPP" && survey.channel !== "EMAIL") {
+        throw new Error("This survey channel cannot be delivered via provider");
+      }
+      return deliverPendingFeedbackSurvey(token!, survey.id, {
+        channel: survey.channel,
+      });
+    },
+    onSuccess: (result) => {
+      toast.success(
+        result.accepted
+          ? "Survey delivery accepted by provider"
+          : "Survey delivery attempted but not accepted",
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.feedbackPendingSurveys() });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not deliver survey"));
+    },
   });
 
   const loading = overviewQuery.isLoading || detractorsQuery.isLoading;
@@ -294,6 +361,104 @@ export default function FeedbackPage() {
           )}
         </Card>
       </div>
+
+      <Card className="mt-4 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-oc-text">Pending survey handoff</h2>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => void pendingSurveysQuery.refetch()}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
+
+        {pendingSurveysQuery.isError ? (
+          <p className="mt-4 text-sm text-red-300">
+            {getErrorMessage(pendingSurveysQuery.error, "Could not load pending surveys")}
+          </p>
+        ) : pendingSurveysQuery.isLoading ? (
+          <div className="mt-4 space-y-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-16" />
+            ))}
+          </div>
+        ) : pendingSurveysQuery.data?.items.length ? (
+          <div className="mt-4 space-y-3">
+            {pendingSurveysQuery.data.items.map((survey) => {
+              const sending = deliverMutation.isPending && deliverMutation.variables?.id === survey.id;
+              const copying = copyLinkMutation.isPending && copyLinkMutation.variables === survey.id;
+              const reissuing =
+                reissueTokenMutation.isPending && reissueTokenMutation.variables === survey.id;
+
+              return (
+                <div key={survey.id} className="rounded-lg border border-oc-border bg-oc-bg-mid/40 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-oc-muted">
+                    <span className="rounded-full border border-oc-border px-2 py-0.5">{survey.type}</span>
+                    <span className="rounded-full border border-oc-border px-2 py-0.5">
+                      {survey.channel ?? "UNKNOWN"}
+                    </span>
+                    <span className="rounded-full border border-oc-border px-2 py-0.5">
+                      {survey.status}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-sm font-medium text-oc-text">
+                    {survey.customer.firstName} {survey.customer.lastName ?? ""}
+                  </p>
+                  <p className="mt-1 text-xs text-oc-faint">
+                    Created {formatDistanceToNow(new Date(survey.createdAt), { addSuffix: true })}
+                  </p>
+
+                  {survey.sendCapabilities.providerReady ? null : (
+                    <p className="mt-2 text-xs text-yellow-300">{survey.sendCapabilities.providerReason}</p>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={copying || reissuing || sending}
+                      onClick={() => {
+                        if (survey.handoff.linkAvailable) {
+                          copyLinkMutation.mutate(survey.id);
+                        } else {
+                          reissueTokenMutation.mutate(survey.id);
+                        }
+                      }}
+                    >
+                      <Link2 className="mr-2 h-4 w-4" />
+                      {survey.handoff.linkAvailable ? "Copy link" : "Reissue and copy"}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={
+                        sending ||
+                        copying ||
+                        reissuing ||
+                        !survey.sendCapabilities.canAttemptSend ||
+                        !survey.sendCapabilities.providerReady
+                      }
+                      onClick={() => deliverMutation.mutate(survey)}
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      Send now
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-oc-muted">No pending feedback surveys awaiting handoff.</p>
+        )}
+      </Card>
 
       <Card className="mt-4 p-4">
         <div className="flex items-center justify-between gap-3">

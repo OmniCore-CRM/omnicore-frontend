@@ -1,4 +1,4 @@
-import { apiFetch } from "./client";
+import { apiFetch, refreshSessionOnce } from "./client";
 import { normalizeAuthResponse, normalizeMeResponse } from "./normalize";
 import type {
   LoginRequest,
@@ -27,8 +27,12 @@ export async function registerApi(body: RegisterRequest) {
 }
 
 export async function refreshSessionApi() {
-  const raw = await apiFetch<unknown>("/auth/refresh", { method: "POST" });
-  return normalizeAuthResponse(raw);
+  const refreshed = await refreshSessionOnce();
+  if (!refreshed) {
+    throw new Error("Session expired");
+  }
+
+  return refreshed;
 }
 
 export async function fetchCurrentSession(token: string) {

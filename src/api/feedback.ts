@@ -5,7 +5,11 @@ import type {
   FeedbackEscalationStatus,
   FeedbackOverview,
   FeedbackOverviewRange,
+  FeedbackPendingSurveyList,
   FeedbackPublicSurvey,
+  FeedbackSurveyDeliveryResult,
+  FeedbackSurveyLinkRevealResult,
+  FeedbackSurveyTokenReissueResult,
   FeedbackTriggerConfig,
   FeedbackTriggerMode,
   FeedbackTriggerSource,
@@ -66,6 +70,62 @@ export async function getFeedbackTriggerConfig(
   token: string
 ): Promise<FeedbackTriggerConfig[]> {
   return apiFetch<FeedbackTriggerConfig[]>("/feedback/trigger-config", { token });
+}
+
+export async function listPendingFeedbackSurveys(
+  token: string,
+  params: {
+    status?: "PENDING" | "SENT" | "EXPIRED";
+    cursor?: string;
+    limit?: number;
+  } = {}
+): Promise<FeedbackPendingSurveyList> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.cursor) query.set("cursor", params.cursor);
+  if (params.limit) query.set("limit", String(params.limit));
+
+  const suffix = query.toString();
+  return apiFetch<FeedbackPendingSurveyList>(
+    suffix ? `/feedback/pending-surveys?${suffix}` : "/feedback/pending-surveys",
+    { token }
+  );
+}
+
+export async function revealPendingFeedbackSurveyLink(
+  token: string,
+  surveyId: string
+): Promise<FeedbackSurveyLinkRevealResult> {
+  return apiFetch<FeedbackSurveyLinkRevealResult>(`/feedback/pending-surveys/${surveyId}/reveal-link`, {
+    token,
+    method: "POST",
+  });
+}
+
+export async function reissuePendingFeedbackSurveyToken(
+  token: string,
+  surveyId: string,
+  payload: { reason?: string } = {}
+): Promise<FeedbackSurveyTokenReissueResult> {
+  return apiFetch<FeedbackSurveyTokenReissueResult>(`/feedback/pending-surveys/${surveyId}/reissue-token`, {
+    token,
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function deliverPendingFeedbackSurvey(
+  token: string,
+  surveyId: string,
+  payload: {
+    channel?: "WHATSAPP" | "EMAIL";
+  } = {}
+): Promise<FeedbackSurveyDeliveryResult> {
+  return apiFetch<FeedbackSurveyDeliveryResult>(`/feedback/pending-surveys/${surveyId}/deliver`, {
+    token,
+    method: "POST",
+    body: payload,
+  });
 }
 
 export async function updateFeedbackTriggerConfig(

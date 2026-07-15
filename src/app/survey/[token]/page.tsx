@@ -164,9 +164,18 @@ export default function PublicSurveyPage() {
               <Button
                 type="submit"
                 disabled={score === null || submitMutation.isPending}
+                aria-disabled={score === null || submitMutation.isPending}
+                aria-busy={submitMutation.isPending}
                 className="h-11 px-5"
               >
-                {submitMutation.isPending ? "Submitting..." : "Submit feedback"}
+                {submitMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit feedback"
+                )}
               </Button>
             </form>
           )}

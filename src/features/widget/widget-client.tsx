@@ -20,7 +20,7 @@ import {
   InlineAttachmentItem,
 } from "@/features/attachments/attachment-list";
 import { buildConversationTimeline } from "@/features/attachments/conversation-timeline";
-import { Loader2, Paperclip } from "lucide-react";
+import { Check, Copy, Loader2, Paperclip, RotateCcw } from "lucide-react";
 
 type StoredWidgetSession = {
   sessionToken: string;
@@ -84,6 +84,58 @@ function formatMessageTime(value: string) {
   }).format(new Date(value));
 }
 
+type MessageSegment =
+  | { type: "text"; value: string }
+  | { type: "link"; value: string };
+
+function toSafeUrl(raw: string) {
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function splitMessageIntoSegments(content: string): MessageSegment[] {
+  const regex = /(https?:\/\/[^\s<>()"']+)/g;
+  const segments: MessageSegment[] = [];
+  let cursor = 0;
+  let match = regex.exec(content);
+
+  while (match) {
+    const matchStart = match.index;
+    const rawUrl = match[0];
+    const safeUrl = toSafeUrl(rawUrl);
+
+    if (matchStart > cursor) {
+      segments.push({
+        type: "text",
+        value: content.slice(cursor, matchStart),
+      });
+    }
+
+    if (safeUrl) {
+      segments.push({ type: "link", value: safeUrl });
+    } else {
+      segments.push({ type: "text", value: rawUrl });
+    }
+
+    cursor = matchStart + rawUrl.length;
+    match = regex.exec(content);
+  }
+
+  if (cursor < content.length) {
+    segments.push({
+      type: "text",
+      value: content.slice(cursor),
+    });
+  }
+
+  return segments;
+}
+
 export function WidgetClient({
   publicKey,
   preBootstrapped = false,
@@ -112,6 +164,9 @@ export function WidgetClient({
   const [composer, setComposer] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [retryingMessageId, setRetryingMessageId] = useState<string | null>(null);
+  const [copyingUrl, setCopyingUrl] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingAttachment, setPendingAttachment] = useState<{
     conversationId: string;
@@ -276,6 +331,7 @@ export function WidgetClient({
 
   async function startChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (sending) return;
     setError(null);
     setSending(true);
 
@@ -310,6 +366,7 @@ export function WidgetClient({
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (sending || uploading) return;
 
     if (!session) return;
 
@@ -370,6 +427,49 @@ export function WidgetClient({
       setError(getErrorMessage(err, "Message failed to send"));
     } finally {
       setSending(false);
+    }
+  }
+
+  async function retryFailedMessage(message: Message) {
+    if (!session || retryingMessageId) return;
+    if (!message.content.trim()) return;
+
+    setRetryingMessageId(message.id);
+    setError(null);
+    try {
+      const resent = await sendWidgetMessage(
+        publicKey,
+        session.conversationId,
+        session.sessionToken,
+        message.content,
+      );
+
+      setMessages((current) =>
+        upsertMessage(
+          current.filter((item) => item.id !== message.id),
+          resent,
+        ),
+      );
+    } catch (err) {
+      setError(getErrorMessage(err, "Retry failed"));
+    } finally {
+      setRetryingMessageId(null);
+    }
+  }
+
+  async function copyMessageLink(url: string) {
+    if (copyingUrl) return;
+    setCopyingUrl(url);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(url);
+      setTimeout(() => {
+        setCopiedUrl((current) => (current === url ? null : current));
+      }, 1500);
+    } catch {
+      setError("Could not copy link");
+    } finally {
+      setCopyingUrl(null);
     }
   }
 
@@ -561,16 +661,59 @@ export function WidgetClient({
                           : "rounded-bl-md border border-slate-200 bg-white text-slate-950"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap break-words">
-                        {item.message.content}
-                      </p>
+                      <div className="space-y-2">
+                        <p className="whitespace-pre-wrap break-words">
+                          {splitMessageIntoSegments(item.message.content).map((segment, index) => {
+                            if (segment.type === "text") {
+                              return <span key={`${item.message.id}-text-${index}`}>{segment.value}</span>;
+                            }
+
+                            const isCopying = copyingUrl === segment.value;
+                            const isCopied = copiedUrl === segment.value;
+
+                            return (
+                              <span key={`${item.message.id}-link-${index}`} className="inline-flex items-center gap-1">
+                                <a
+                                  href={segment.value}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`underline break-all ${
+                                    mine ? "text-sky-200" : "text-sky-700"
+                                  }`}
+                                >
+                                  {segment.value}
+                                </a>
+                                <button
+                                  type="button"
+                                  aria-label="Copy link"
+                                  disabled={isCopying}
+                                  onClick={() => void copyMessageLink(segment.value)}
+                                  className={`inline-flex h-5 w-5 items-center justify-center rounded ${
+                                    mine
+                                      ? "text-slate-200 hover:bg-white/10"
+                                      : "text-slate-500 hover:bg-slate-100"
+                                  } disabled:opacity-60`}
+                                >
+                                  {isCopying ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : isCopied ? (
+                                    <Check className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </p>
+                      </div>
                       <div
                         className={`mt-2 flex items-center gap-2 text-[11px] ${
                           mine ? "text-slate-300" : "text-slate-500"
                         }`}
                       >
                         <span>{formatMessageTime(item.message.createdAt)}</span>
-                        {item.message.status === "PENDING" && <span>Sending</span>}
+                        {item.message.status === "PENDING" && <span>Sending...</span>}
                         {item.message.status === "FAILED" && (
                           <span
                             className={mine ? "text-red-200" : "text-red-600"}
@@ -579,6 +722,34 @@ export function WidgetClient({
                           </span>
                         )}
                       </div>
+                      {mine && item.message.status === "FAILED" && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => void retryFailedMessage(item.message)}
+                            disabled={retryingMessageId === item.message.id}
+                            aria-disabled={retryingMessageId === item.message.id}
+                            aria-busy={retryingMessageId === item.message.id}
+                            className={`inline-flex min-h-8 items-center rounded-md px-2.5 text-[11px] font-semibold ${
+                              mine
+                                ? "bg-white/10 text-white hover:bg-white/20"
+                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                            } disabled:opacity-60`}
+                          >
+                            {retryingMessageId === item.message.id ? (
+                              <>
+                                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                Retrying...
+                              </>
+                            ) : (
+                              <>
+                                <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                                Retry
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -658,10 +829,15 @@ export function WidgetClient({
               <button
                 type="submit"
                 disabled={sending || uploading || (!composer.trim() && !pendingAttachmentFile)}
+                aria-disabled={sending || uploading || (!composer.trim() && !pendingAttachmentFile)}
+                aria-busy={sending || uploading}
                 className="min-h-11 shrink-0 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {sending || uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="inline-flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </span>
                 ) : (
                   "Send"
                 )}

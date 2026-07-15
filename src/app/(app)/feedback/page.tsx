@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { AlertCircle, Link2, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, Link2, Loader2, RefreshCw, Send } from "lucide-react";
 import {
   deliverPendingFeedbackSurvey,
   getFeedbackOverview,
@@ -170,9 +170,15 @@ export default function FeedbackPage() {
 
   const deliverMutation = useMutation({
     mutationFn: async (survey: FeedbackPendingSurveyItem) => {
-      if (survey.channel !== "WHATSAPP" && survey.channel !== "EMAIL") {
-        throw new Error("This survey channel cannot be delivered via provider");
+      if (!survey.channel) throw new Error("Survey channel is unavailable");
+      if (
+        survey.channel !== "WHATSAPP" &&
+        survey.channel !== "EMAIL" &&
+        survey.channel !== "WEBSITE"
+      ) {
+        throw new Error("This survey channel cannot be sent from this workspace");
       }
+
       return deliverPendingFeedbackSurvey(token!, survey.id, {
         channel: survey.channel,
       });
@@ -187,6 +193,34 @@ export default function FeedbackPage() {
     },
     onError: (error) => {
       toast.error(getErrorMessage(error, "Could not deliver survey"));
+    },
+  });
+
+  const refreshAllMutation = useMutation({
+    mutationFn: async () => {
+      const results = await Promise.allSettled([
+        overviewQuery.refetch({ throwOnError: true }),
+        detractorsQuery.refetch({ throwOnError: true }),
+        pendingSurveysQuery.refetch({ throwOnError: true }),
+        teamsQuery.refetch({ throwOnError: true }),
+        usersQuery.refetch({ throwOnError: true }),
+      ]);
+
+      const failed = results.some((result) => result.status === "rejected");
+      if (failed) {
+        throw new Error("One or more feedback data requests failed");
+      }
+    },
+    onSuccess: () => {
+      toast.success("Feedback data refreshed");
+    },
+    onError: (error) => {
+      toast.error(
+        getErrorMessage(
+          error,
+          "Refresh failed for one or more feedback panels. Please try again."
+        )
+      );
     },
   });
 
@@ -369,10 +403,22 @@ export default function FeedbackPage() {
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => void pendingSurveysQuery.refetch()}
+            disabled={refreshAllMutation.isPending}
+            aria-disabled={refreshAllMutation.isPending}
+            aria-busy={refreshAllMutation.isPending}
+            onClick={() => refreshAllMutation.mutate()}
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+            {refreshAllMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </>
+            )}
           </Button>
         </div>
 
@@ -423,6 +469,8 @@ export default function FeedbackPage() {
                       size="sm"
                       variant="outline"
                       disabled={copying || reissuing || sending}
+                      aria-disabled={copying || reissuing || sending}
+                      aria-busy={copying || reissuing}
                       onClick={() => {
                         if (survey.handoff.linkAvailable) {
                           copyLinkMutation.mutate(survey.id);
@@ -431,8 +479,18 @@ export default function FeedbackPage() {
                         }
                       }}
                     >
-                      <Link2 className="mr-2 h-4 w-4" />
-                      {survey.handoff.linkAvailable ? "Copy link" : "Reissue and copy"}
+                      {copying || reissuing ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Link2 className="mr-2 h-4 w-4" />
+                      )}
+                      {copying
+                        ? "Copying..."
+                        : reissuing
+                          ? "Reissuing..."
+                          : survey.handoff.linkAvailable
+                            ? "Copy link"
+                            : "Reissue and copy"}
                     </Button>
 
                     <Button
@@ -445,10 +503,22 @@ export default function FeedbackPage() {
                         !survey.sendCapabilities.canAttemptSend ||
                         !survey.sendCapabilities.providerReady
                       }
+                      aria-disabled={
+                        sending ||
+                        copying ||
+                        reissuing ||
+                        !survey.sendCapabilities.canAttemptSend ||
+                        !survey.sendCapabilities.providerReady
+                      }
+                      aria-busy={sending}
                       onClick={() => deliverMutation.mutate(survey)}
                     >
-                      <Send className="mr-2 h-4 w-4" />
-                      Send now
+                      {sending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="mr-2 h-4 w-4" />
+                      )}
+                      {sending ? "Sending..." : "Send now"}
                     </Button>
                   </div>
                 </div>

@@ -118,7 +118,7 @@ export async function deliverPendingFeedbackSurvey(
   token: string,
   surveyId: string,
   payload: {
-    channel?: "WHATSAPP" | "EMAIL";
+    channel?: "WHATSAPP" | "EMAIL" | "WEBSITE";
   } = {}
 ): Promise<FeedbackSurveyDeliveryResult> {
   return apiFetch<FeedbackSurveyDeliveryResult>(`/feedback/pending-surveys/${surveyId}/deliver`, {

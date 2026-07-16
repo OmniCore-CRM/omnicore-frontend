@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { apiFetch } from "@/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 
 export interface AISuggestion {
@@ -33,24 +34,14 @@ export function useAISuggestion(
     setError(null);
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/ai/reply-suggestions`,
+      const data = await apiFetch<{ success: boolean; data: AISuggestion }>(
+        "/ai/reply-suggestions",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ conversationId }),
+          token,
+          body: { conversationId },
         }
       );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Failed to generate suggestion");
-      }
-
-      const data = (await response.json()) as { success: boolean; data: AISuggestion };
 
       if (data.success && data.data) {
         setSuggestion(data.data);
@@ -72,24 +63,11 @@ export function useAISuggestion(
       if (!suggestion || !token) return;
 
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/ai/reply-suggestions/${
-            suggestion.id
-          }/accept`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ messageId }),
-          }
-        );
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.message || "Failed to accept suggestion");
-        }
+        await apiFetch(`/ai/reply-suggestions/${suggestion.id}/accept`, {
+          method: "POST",
+          token,
+          body: { messageId },
+        });
 
         setSuggestion(null);
         setError(null);
@@ -106,23 +84,10 @@ export function useAISuggestion(
     if (!suggestion || !token) return;
 
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/ai/reply-suggestions/${
-          suggestion.id
-        }/reject`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Failed to reject suggestion");
-      }
+      await apiFetch(`/ai/reply-suggestions/${suggestion.id}/reject`, {
+        method: "POST",
+        token,
+      });
 
       setSuggestion(null);
       setError(null);

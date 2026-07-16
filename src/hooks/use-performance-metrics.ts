@@ -11,6 +11,7 @@ import { useEffect, useRef } from "react";
 import {
   capturePerformanceMetrics,
   logPerformanceMetrics,
+  PerformanceMetrics,
 } from "@/lib/performance-budgets";
 
 export interface UsePerformanceMetricsOptions {
@@ -22,7 +23,7 @@ export interface UsePerformanceMetricsOptions {
   /** Enable logging to console (only effective in development) */
   enableLogging?: boolean;
   /** Callback when metrics are captured */
-  onMetricsCaptured?: (metrics: Record<string, unknown>) => void;
+  onMetricsCaptured?: (metrics: PerformanceMetrics) => void;
 }
 
 export function usePerformanceMetrics(
@@ -36,7 +37,7 @@ export function usePerformanceMetrics(
     onMetricsCaptured,
   } = options;
 
-  const metricsRef = useRef<Record<string, unknown> | null>(null);
+  const metricsRef = useRef<PerformanceMetrics | null>(null);
   const navigationStartRef = useRef<number>(0);
   const isDev = typeof window !== "undefined" &&
     process.env.NODE_ENV === "development";

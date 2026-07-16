@@ -23,6 +23,7 @@ import { useConversationPresence } from "@/hooks/use-conversation-presence";
 import { useConversationRoom } from "@/hooks/use-conversation-room";
 import { useSocketConnection } from "@/hooks/use-socket-connection";
 import { useSelectedConversationQuery } from "@/features/inbox/use-selected-conversation-query";
+import { AIReplyButton } from "@/components/ai-reply-button";
 import { useAuthStore } from "@/stores/auth-store";
 import { useInboxStore } from "@/stores/inbox-store";
 import { Badge } from "@/components/ui/badge";
@@ -941,6 +942,11 @@ export function MessageThreadPanel({
           </div>
         )}
         <div className="flex items-end gap-2 sm:gap-3">
+          <AIReplyButton
+            conversationId={selectedId || ""}
+            onSuggestionAccepted={(text) => setDraft(text)}
+            disabled={sendMut.isPending || !canPerformConversationActions}
+          />
           <Textarea
             value={draft}
             onChange={(e) => onDraftChange(e.target.value)}

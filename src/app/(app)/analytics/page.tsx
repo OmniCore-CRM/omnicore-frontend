@@ -27,6 +27,7 @@ import {
 import { listTeams } from "@/api/teams";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
+import { usePerformanceMetrics } from "@/hooks/use-performance-metrics";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -708,6 +709,14 @@ export default function AnalyticsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Capture performance metrics for the analytics route (Priority 6)
+  usePerformanceMetrics({
+    route: "/analytics",
+    shellSelector: "header, banner, [role='banner']",
+    contentSelector: "[role='tablist'], .metric-panel",
+    enableLogging: true,
+  });
 
   const [isCustomPickerOpen, setIsCustomPickerOpen] = useState(false);
   const [draftStartDate, setDraftStartDate] = useState("");

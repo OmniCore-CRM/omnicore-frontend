@@ -17,6 +17,7 @@ import { listTeams } from "@/api/teams";
 import { listUsers } from "@/api/users";
 import { getErrorMessage } from "@/api/errors";
 import { queryKeys } from "@/constants/query-keys";
+import { usePerformanceMetrics } from "@/hooks/use-performance-metrics";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -71,6 +72,14 @@ function SummaryTile({ label, value, hint }: { label: string; value: string; hin
 export default function FeedbackPage() {
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.accessToken);
+
+  // Capture performance metrics for the feedback route (Priority 6)
+  usePerformanceMetrics({
+    route: "/feedback",
+    shellSelector: "header, banner, [role='banner']",
+    contentSelector: "main",
+    enableLogging: true,
+  });
 
   const [range, setRange] = useState<FeedbackOverviewRange>("30d");
   const [teamId, setTeamId] = useState<string>("all");

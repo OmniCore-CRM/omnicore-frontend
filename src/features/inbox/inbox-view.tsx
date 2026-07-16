@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { markConversationRead } from "@/api/conversations";
 import { useInboxRealtime } from "@/hooks/use-inbox-realtime";
+import { usePerformanceMetrics } from "@/hooks/use-performance-metrics";
 import { useAuthStore } from "@/stores/auth-store";
 import { useInboxStore } from "@/stores/inbox-store";
 import { ConversationListPanel } from "@/features/inbox/conversation-list-panel";
@@ -18,6 +19,14 @@ export function InboxView() {
   const setSelectedId = useInboxStore((s) => s.setSelectedConversationId);
   const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
   const [customerPanelCollapsed, setCustomerPanelCollapsed] = useState(false);
+
+  // Capture performance metrics for the inbox route (Priority 6)
+  usePerformanceMetrics({
+    route: "/inbox",
+    shellSelector: "header, banner, [role='banner']",
+    contentSelector: "section",
+    enableLogging: true,
+  });
 
   // Initialize company-scoped realtime inbox events.
   useInboxRealtime(company?.id ?? null);

@@ -187,10 +187,15 @@ export function MessageThreadPanel({
     gcTime: 30 * 60_000,
     refetchOnMount: false,
   });
+
+  // Defer teams and users queries until after messages are loaded or initial render
+  // This keeps conversation opening responsive and fast (< 2s)
+  const messagesLoaded = messagesQuery.isPending === false;
+
   const teamsQuery = useQuery({
     queryKey: queryKeys.teams,
     queryFn: () => listTeams(token!),
-    enabled: !!token && !!selectedId,
+    enabled: !!token && !!selectedId && messagesLoaded,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,
@@ -198,7 +203,7 @@ export function MessageThreadPanel({
   const usersQuery = useQuery({
     queryKey: queryKeys.users,
     queryFn: () => listUsers(token!),
-    enabled: !!token && !!selectedId,
+    enabled: !!token && !!selectedId && messagesLoaded,
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnMount: false,

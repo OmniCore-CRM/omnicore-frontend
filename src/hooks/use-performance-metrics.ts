@@ -1,6 +1,10 @@
 /**
  * Hook to automatically capture and log performance metrics for a route.
  * Measures: shell paint time, content visible time, request counts, auth latency.
+ *
+ * DEVELOPMENT ONLY: This hook logs only in process.env.NODE_ENV === 'development'
+ * to avoid console logging in production. Use the staging smoke test runner
+ * instead for production validation.
  */
 
 import { useEffect, useRef } from "react";
@@ -15,15 +19,15 @@ export interface UsePerformanceMetricsOptions {
   shellSelector?: string;
   /** Selector to detect when main content is visible (e.g. main, list items) */
   contentSelector?: string;
-  /** Enable logging to console */
+  /** Enable logging to console (only effective in development) */
   enableLogging?: boolean;
   /** Callback when metrics are captured */
-  onMetricsCaptured?: (metrics: any) => void;
+  onMetricsCaptured?: (metrics: Record<string, unknown>) => void;
 }
 
 export function usePerformanceMetrics(
   options: UsePerformanceMetricsOptions
-) {
+): void {
   const {
     route,
     shellSelector = "header, banner, [role='banner']",
@@ -32,8 +36,10 @@ export function usePerformanceMetrics(
     onMetricsCaptured,
   } = options;
 
-  const metricsRef = useRef<any>(null);
+  const metricsRef = useRef<Record<string, unknown> | null>(null);
   const navigationStartRef = useRef<number>(0);
+  const isDev = typeof window !== "undefined" &&
+    process.env.NODE_ENV === "development";
 
   useEffect(() => {
     // Start timing
@@ -95,7 +101,8 @@ export function usePerformanceMetrics(
 
       metricsRef.current = metrics;
 
-      if (enableLogging) {
+      // Only log in development mode
+      if (isDev && enableLogging) {
         logPerformanceMetrics(metrics);
       }
 
@@ -108,7 +115,5 @@ export function usePerformanceMetrics(
     const timer = setTimeout(captureMetrics, 2000);
 
     return () => clearTimeout(timer);
-  }, [route, shellSelector, contentSelector, enableLogging, onMetricsCaptured]);
-
-  return metricsRef.current;
+  }, [route, shellSelector, contentSelector, enableLogging, onMetricsCaptured, isDev]);
 }

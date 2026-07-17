@@ -34,7 +34,9 @@ export function useAISuggestion(
     setError(null);
 
     try {
-      const data = await apiFetch<{ success: boolean; data: AISuggestion }>(
+      const payload = await apiFetch<
+        AISuggestion | { success?: boolean; data?: AISuggestion }
+      >(
         "/ai/reply-suggestions",
         {
           method: "POST",
@@ -43,9 +45,17 @@ export function useAISuggestion(
         }
       );
 
-      if (data.success && data.data) {
-        setSuggestion(data.data);
-        options?.onSuccess?.(data.data);
+      // apiFetch may return either the full envelope or the unwrapped data,
+      // depending on endpoint response normalization.
+      const maybeEnvelope = payload as { success?: boolean; data?: AISuggestion };
+      const nextSuggestion =
+        maybeEnvelope?.data && typeof maybeEnvelope.data === "object"
+          ? maybeEnvelope.data
+          : (payload as AISuggestion);
+
+      if (nextSuggestion?.id && nextSuggestion?.suggestion) {
+        setSuggestion(nextSuggestion);
+        options?.onSuccess?.(nextSuggestion);
       } else {
         throw new Error("Invalid response from server");
       }

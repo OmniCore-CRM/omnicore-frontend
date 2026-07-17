@@ -69,14 +69,15 @@ export function useAISuggestion(
   }, [token, conversationId, options]);
 
   const acceptSuggestion = useCallback(
-    async (messageId: string) => {
+    async (messageId?: string) => {
       if (!suggestion || !token) return;
 
       try {
+        const trimmedMessageId = messageId?.trim();
         await apiFetch(`/ai/reply-suggestions/${suggestion.id}/accept`, {
           method: "POST",
           token,
-          body: { messageId },
+          body: trimmedMessageId ? { messageId: trimmedMessageId } : {},
         });
 
         setSuggestion(null);

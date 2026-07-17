@@ -42,7 +42,7 @@ export const AIReplyButton: React.FC<AIReplyButtonProps> = ({
   const handleAcceptClick = async () => {
     if (suggestion) {
       onSuggestionAccepted?.(editedText || suggestion.suggestion);
-      await acceptSuggestion("");
+      await acceptSuggestion();
       setEditedText("");
       setIsEditing(false);
     }
